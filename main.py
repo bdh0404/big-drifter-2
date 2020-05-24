@@ -7,7 +7,7 @@ import bot
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
 
-client = bot.DestinyBot(bungie_api_key=options.pop("bungie_api_key"))
+client = bot.DestinyBot(**options)
 
 
 @client.event

@@ -133,3 +133,5 @@ dmypy.json
 
 # Project
 settings.json
+members.json
+push_list.json

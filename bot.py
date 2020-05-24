@@ -40,7 +40,7 @@ class DestinyBot(discord.Client):
             joined, leaved = await self.d2util.member_diff()
             # 단순 출력
             if joined or leaved:
-                print(f"Alert detected: {len(joined)}/{len(leaved)}")
+                print(f"{dt.datetime.now()} Alert detected: {len(joined)}/{len(leaved)}")
                 msg_list.append(await self.msg_members_diff(joined, leaved))
 
             # TODO joined list 의 member 에 대한 검증 필요
@@ -52,7 +52,7 @@ class DestinyBot(discord.Client):
                 if target is not None and msg:
                     await target.send(msg)
             # 1분간 sleep
-            print(f"loop complete.")
+            # print(f"loop complete.")
             await asyncio.sleep(60)
 
     def run(self, *args, **kwargs):
