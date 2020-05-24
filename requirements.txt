@@ -1,0 +1,11 @@
+aiofile
+aiohttp
+async-timeout
+attrs
+chardet
+discord.py
+idna
+multidict
+pydest
+websockets
+yarl
