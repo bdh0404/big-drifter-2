@@ -1,25 +1,38 @@
 import asyncio
 import datetime as dt
 import json
+import logging
 
 import discord
 
 import destiny2
 
 
+logger = logging.getLogger("bot")
+
+
 class DestinyBot(discord.Client):
     def __init__(self, *, loop=None, **options):
         super(DestinyBot, self).__init__(loop=loop, **options)
         self.d2util = destiny2.ClanUtil(options.pop("bungie_api_key"), options.pop("group_id"), loop=self.loop)
-        self.alert_target = options.pop("alert_targets", [])
+        self.st = dt.datetime.now()
+        with open("push_list.json", "r", encoding="utf-8") as f:
+            self.alert_target = json.load(f).pop("alert_target", [])
+
+        if not self.alert_target:
+            logger.warning("Empty alert target list!!")
 
     async def reload_alert_target(self):
         with open("push_list.json", "r", encoding="utf-8") as f:
-            self.alert_target = json.load(f).pop("alert_target")
+            self.alert_target = json.load(f).pop("alert_target", [])
+        return len(self.alert_target)
 
     async def update_alert_target(self, channel_id):
         # TODO 채팅 통해 업데이트 기능 지원
         pass
+
+    async def get_uptime(self):
+        return str(dt.datetime.now() - self.st)
 
     async def msg_members_diff(self, joined: list, leaved: list):
         # TODO 이거 나중가면 필요없을거같은데
@@ -32,7 +45,7 @@ class DestinyBot(discord.Client):
     async def alert(self):
         # 로딩될때까지 대기
         await self.wait_until_ready()
-        print(f"Alert task start, {self.is_closed()}")
+        logger.info("Alert task start")
         while not self.is_closed():
             alert_target = [self.get_channel(id=n) for n in self.alert_target]
             msg_list = []
@@ -40,7 +53,7 @@ class DestinyBot(discord.Client):
             joined, leaved = await self.d2util.member_diff()
             # 단순 출력
             if joined or leaved:
-                print(f"{dt.datetime.now()} Alert detected: {len(joined)}/{len(leaved)}")
+                logger.info(f"{dt.datetime.now()} Alert detected: {len(joined)}, {len(leaved)}")
                 msg_list.append(await self.msg_members_diff(joined, leaved))
 
             # TODO joined list 의 member 에 대한 검증 필요

@@ -2,8 +2,12 @@ import asyncio
 import datetime as dt
 import json
 import os
+import logging
 
 import pydest
+
+
+logger = logging.getLogger("d2util")
 
 
 def str_to_datetime(date_time: str):
