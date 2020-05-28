@@ -38,8 +38,8 @@ class DestinyBot(discord.Client):
         # TODO 이거 나중가면 필요없을거같은데
         msg_list = list()
         msg_list.append(f"**{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 클랜원 목록 변동 감지!**")
-        msg_list.extend(f":blue_circle: {n['destinyUserInfo']['LastSeenDisplayName']} `({n['destinyUserInfo']['membershipId']}, {n['bungieNetUserInfo']['displayName']})`" for n in joined)
-        msg_list.extend(f":red_circle: {n['destinyUserInfo']['LastSeenDisplayName']} `({n['destinyUserInfo']['membershipId']}, {n['bungieNetUserInfo']['displayName']})`" for n in leaved)
+        msg_list.extend(f":blue_circle: **{n['destinyUserInfo']['LastSeenDisplayName']}** `({n['destinyUserInfo']['membershipId']}, {n['bungieNetUserInfo']['displayName']})`" for n in joined)
+        msg_list.extend(f":red_circle: **{n['destinyUserInfo']['LastSeenDisplayName']}** `({n['destinyUserInfo']['membershipId']}, {n['bungieNetUserInfo']['displayName']})`" for n in leaved)
         return "\n".join(msg_list)
 
     async def alert(self):

@@ -4,7 +4,7 @@ import json
 
 import bot
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
