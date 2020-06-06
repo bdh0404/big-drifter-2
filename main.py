@@ -4,7 +4,7 @@ import json
 
 import bot
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -33,10 +33,20 @@ async def on_message(message):
 
     if message.content.startswith("$정보"):
         await message.channel.send(f"**BIG DRIFTER 2**\nv{__version__}")
+
     elif message.content.startswith("$미접"):
-        await message.channel.send("대충 미접 기간 누군지 알려주는 내용.")
+        args: list = message.content.split()
+        if len(args) < 2:
+            msg = await client.get_long_offline()
+        elif args[1].isdigit():
+            msg = await client.get_long_offline(int(args[1]))
+        else:
+            msg = "올바른 미접 커트라인(일 단위)을 입력해주세요."
+        await message.channel.send(msg)
+
     elif message.content.startswith("$등록"):
         pass
+
     elif message.content.startswith("$업타임"):
         uptime = await client.get_uptime()
         await message.channel.send(f"작동시간: {uptime}")
