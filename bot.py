@@ -60,8 +60,12 @@ class DestinyBot(discord.Client):
     async def alert(self):
         # 로딩될때까지 대기
         await self.wait_until_ready()
-        logger.info("Alert task start")
-        while not self.is_closed():
+        logger.info(f"{dt.datetime.now()} Alert task start")
+        while True:
+            if self.is_closed():
+                logger.warning(f"{dt.datetime.now()} client closed!!")
+                await asyncio.sleep(60)
+                continue
             alert_target = [self.get_channel(id=n) for n in self.alert_target]
             msg_list = []
             # 클랜원 변화 목록 파싱
