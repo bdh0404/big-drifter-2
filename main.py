@@ -1,6 +1,8 @@
 import logging
-import discord
 import json
+import os
+
+import discord
 
 import bot
 
@@ -32,7 +34,7 @@ async def on_message(message):
         return
 
     if message.content.startswith("$정보"):
-        await message.channel.send(f"**BIG DRIFTER 2**\nv{__version__}")
+        await message.channel.send(f"**BIG DRIFTER 2**\nv{__version__}\nPID: {os.getpid()}")
 
     elif message.content.startswith("$미접"):
         args: list = message.content.split()
