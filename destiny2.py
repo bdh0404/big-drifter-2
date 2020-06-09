@@ -33,6 +33,11 @@ class ClanUtil:
         else:
             with open(cmp_file_path, "r", encoding="utf-8") as f:
                 raw_old: list = json.load(f)
+            # 파일도 비어있는 경우 새로 저장한 다음 바로 비어있는 리스트 반환
+            if not raw_old:
+                with open(cmp_file_path, "w", encoding="utf-8") as f:
+                    json.dump(raw_new, f, ensure_ascii=False, indent=2)
+                return [], []
 
         # 집합 변환 후 변화 감지
         set_new = set(n["destinyUserInfo"]["membershipId"] for n in raw_new)
