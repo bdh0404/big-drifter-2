@@ -17,8 +17,9 @@ class DestinyBot(discord.Client):
         self.d2util = destiny2.ClanUtil(options.pop("bungie_api_key"), options.pop("group_id"), loop=self.loop)
         self.st = dt.datetime.now()
         self.offline_cut = options.pop("offline_cut", 14)
+        self.last_tasks_run = None
         with open("push_list.json", "r", encoding="utf-8") as f:
-            self.alert_target = json.load(f).pop("alert_target", [])
+            self.alert_target: list = json.load(f).pop("alert_target", [])
 
         if not self.alert_target:
             logger.warning("Empty alert target list!!")
@@ -28,9 +29,22 @@ class DestinyBot(discord.Client):
             self.alert_target = json.load(f).pop("alert_target", [])
         return len(self.alert_target)
 
-    async def update_alert_target(self, channel_id):
-        # TODO 채팅 통해 업데이트 기능 지원
-        pass
+    async def update_alert_target(self):
+        with open("push_list.json", "r", encoding="utf-8") as f:
+            push_list = json.load(f)
+        push_list["alert_target"] = self.alert_target
+        with open("push_list.json", "w", encoding="utf-8") as f:
+            json.dump(push_list, f, indent=2)
+
+    async def toggle_alert_target(self, channel_id: int):
+        if channel_id in self.alert_target:
+            self.alert_target.remove(channel_id)
+            ret = 0
+        else:
+            self.alert_target.append(channel_id)
+            ret = 1
+        await self.update_alert_target()
+        return ret
 
     async def get_uptime(self):
         return str(dt.datetime.now() - self.st)
@@ -58,38 +72,46 @@ class DestinyBot(discord.Client):
         return "\n".join(msg_list)
 
     async def alert(self):
+        logger.debug("Alert Task start!")
+        alert_target = [self.get_channel(id=n) for n in self.alert_target]
+        msg_list = []
+        # 클랜원 변화 목록 파싱
+        joined, leaved = await self.d2util.member_diff()
+        # 단순 출력
+        if joined or leaved:
+            logger.info(f"{dt.datetime.now()} Alert detected: {len(joined)}, {len(leaved)}")
+            msg_list.append(await self.msg_members_diff(joined, leaved))
+
+        # TODO joined list 의 member 에 대한 검증 필요
+        # Verify code here
+
+        # 대충 메시지 보내는 부분
+        msg = "\n\n".join(msg_list)
+        for target in alert_target:
+            if target is not None and msg:
+                await target.send(msg)
+        logger.debug("Alert Task end")
+
+    async def tasks(self):
         # 로딩될때까지 대기
         await self.wait_until_ready()
-        logger.info(f"{dt.datetime.now()} Alert task start")
+        logger.info(f"{dt.datetime.now()} loop task start")
         while True:
             if self.is_closed():
                 logger.warning(f"{dt.datetime.now()} client closed!!")
                 await asyncio.sleep(60)
                 continue
-            alert_target = [self.get_channel(id=n) for n in self.alert_target]
-            msg_list = []
-            # 클랜원 변화 목록 파싱
-            joined, leaved = await self.d2util.member_diff()
-            # 단순 출력
-            if joined or leaved:
-                logger.info(f"{dt.datetime.now()} Alert detected: {len(joined)}, {len(leaved)}")
-                msg_list.append(await self.msg_members_diff(joined, leaved))
-
-            # TODO joined list 의 member 에 대한 검증 필요
-            # Verify code here
-
-            # 대충 메시지 보내는 부분
-            msg = "\n\n".join(msg_list)
-            for target in alert_target:
-                if target is not None and msg:
-                    await target.send(msg)
+            logger.debug("Creating tasks")
+            self.loop.create_task(self.alert())
+            logger.debug("Creating tasks end. sleep 60 secs...")
+            # 봇에서 가동중임을 확인하기 위해 최근 가동시간을 저장
+            self.last_tasks_run = dt.datetime.now()
             # 1분간 sleep
-            # print(f"loop complete.")
             await asyncio.sleep(60)
 
     def run(self, *args, **kwargs):
         # 대충 loop에 작업 추가하는 파트
-        self.loop.create_task(self.alert())
+        self.loop.create_task(self.tasks())
         # super 실행
         super(DestinyBot, self).run(*args, **kwargs)
 

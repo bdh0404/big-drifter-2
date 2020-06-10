@@ -6,7 +6,7 @@ import discord
 
 import bot
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -30,11 +30,11 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.author == client.user and not message.content.startswith("$"):
+    if message.author.bot and not message.content.startswith("$"):
         return
 
     if message.content.startswith("$정보"):
-        await message.channel.send(f"**BIG DRIFTER 2**\nv{__version__}\nPID: {os.getpid()}")
+        await message.channel.send(f"**BIG DRIFTER 2**\nv{__version__}\nPID: {os.getpid()}\nLast update: {client.last_tasks_run}")
 
     elif message.content.startswith("$미접"):
         args: list = message.content.split()
@@ -47,7 +47,14 @@ async def on_message(message):
         await message.channel.send(msg)
 
     elif message.content.startswith("$등록"):
-        pass
+        if message.author.guild_permissions.administrator:
+            ret = await client.toggle_alert_target(message.channel.id)
+            if ret == 1:
+                await message.channel.send(f"{message.channel.name} 채널이 알림 수신 목록에 추가되었습니다.")
+            elif ret == 0:
+                await message.channel.send(f"{message.channel.name} 채널이 알림 수신 목록에서 제거되었습니다.")
+        else:
+            await message.channel.send("서버 관리자 권한이 필요합니다!")
 
     elif message.content.startswith("$업타임"):
         uptime = await client.get_uptime()
