@@ -49,18 +49,29 @@ class DestinyBot(discord.Client):
     async def get_uptime(self):
         return str(dt.datetime.now() - self.st)
 
+    async def get_clan_online(self):
+        msg_list = list()
+        online = await self.d2util.online_members()
+        data = [{'dp_name': n['destinyUserInfo']['LastSeenDisplayName'],
+                 'membership_id': n['destinyUserInfo']['membershipId'],
+                 'bungie_name': n.get('bungieNetUserInfo', {}).get('displayName', "")}
+                for n in online]
+        msg_list.append(f"**{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 접속중인 클랜원 목록**")
+        msg_list.extend(f"{n['dp_name']}`({n['membership_id']}, {n['bungie_name']})`" for n in data)
+        return "\n".join(msg_list)
+
     async def get_long_offline(self, offline_cut=0):
         cut = offline_cut if offline_cut else self.offline_cut
         # target: 유저 정보 담긴 dict 객체들의 list
         target = await self.d2util.members_offline_time(cut)
-        data = [{'display_name': n['destinyUserInfo']['LastSeenDisplayName'],
+        data = [{'dp_name': n['destinyUserInfo']['LastSeenDisplayName'],
                  'membership_id': n['destinyUserInfo']['membershipId'],
                  'bungie_name': n.get('bungieNetUserInfo', {}).get('displayName', ""),
                  'last_online': dt.timedelta(seconds=int(dt.datetime.utcnow().timestamp()) - int(n['lastOnlineStatusChange']))}
                 for n in target]
         msg_list = list()
         msg_list.append(f"**{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 기준 {cut}일 이상 미접속자 목록**")
-        msg_list.extend(f"**{n['display_name']}**`({n['membership_id']}, {n['bungie_name']})`\n`{n['last_online']}`" for n in data)
+        msg_list.extend(f"**{n['dp_name']}**`({n['membership_id']}, {n['bungie_name']})`\n`{n['last_online']}`" for n in data)
         return "\n".join(msg_list)
 
     async def msg_members_diff(self, joined: list, leaved: list):

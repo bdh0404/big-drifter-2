@@ -69,3 +69,9 @@ class ClanUtil:
                   if int(n["lastOnlineStatusChange"]) < cut_line]
         target.sort(key=lambda x: x["lastOnlineStatusChange"])      # 보기 쉽게 정렬
         return target
+
+    async def online_members(self):
+        resp = await self.destiny.api.get_members_of_group(self.group_id)
+        members: list = resp["Response"]["results"]
+        online = filter(lambda x: x.get("isOnline"), members)
+        return online

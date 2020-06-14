@@ -6,7 +6,7 @@ import discord
 
 import bot
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -30,7 +30,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.author.bot and not message.content.startswith("$"):
+    if message.author.bot or not message.content.startswith("$"):
         return
 
     if message.content.startswith("$정보"):
@@ -44,6 +44,10 @@ async def on_message(message):
             msg = await client.get_long_offline(int(args[1]))
         else:
             msg = "올바른 미접 커트라인(일 단위)을 입력해주세요."
+        await message.channel.send(msg)
+
+    elif message.content.startswith("$온라인"):
+        msg = await client.get_clan_online()
         await message.channel.send(msg)
 
     elif message.content.startswith("$등록"):
