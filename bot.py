@@ -2,6 +2,7 @@ import asyncio
 import datetime as dt
 import json
 import logging
+import re
 
 import discord
 
@@ -9,6 +10,10 @@ import destiny2
 
 
 logger = logging.getLogger("bot")
+
+
+def escape_markdown(s: str) -> str:
+    return re.sub(r"([-_~`*])", "\\\\\\1", s)
 
 
 class DestinyBot(discord.Client):
@@ -36,31 +41,31 @@ class DestinyBot(discord.Client):
         with open("push_list.json", "w", encoding="utf-8") as f:
             json.dump(push_list, f, indent=2)
 
-    async def toggle_alert_target(self, channel_id: int):
+    async def toggle_alert_target(self, channel_id: int) -> bool:
         if channel_id in self.alert_target:
             self.alert_target.remove(channel_id)
-            ret = 0
+            ret = False
         else:
             self.alert_target.append(channel_id)
-            ret = 1
+            ret = True
         await self.update_alert_target()
         return ret
 
-    async def get_uptime(self):
+    async def get_uptime(self) -> str:
         return str(dt.datetime.now() - self.st)
 
-    async def get_clan_online(self):
-        msg_list = list()
+    async def get_clan_online(self) -> discord.Embed:
         online = await self.d2util.online_members()
         data = [{'dp_name': n['destinyUserInfo']['LastSeenDisplayName'],
                  'membership_id': n['destinyUserInfo']['membershipId'],
                  'bungie_name': n.get('bungieNetUserInfo', {}).get('displayName', "")}
                 for n in online]
-        msg_list.append(f"**{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 접속중인 클랜원 목록**")
-        msg_list.extend(f"{n['dp_name']}`({n['membership_id']}, {n['bungie_name']})`" for n in data)
-        return "\n".join(msg_list)
 
-    async def get_long_offline(self, offline_cut=0):
+        msg_embed = discord.Embed(title="접속중인 클랜원 목록", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed.add_field(name=f"온라인 ({len(data)})", value="\n".join(escape_markdown(f"{n['dp_name']} ({n['bungie_name']})") for n in data), inline=False)
+        return msg_embed
+
+    async def get_long_offline(self, offline_cut=0) -> discord.Embed:
         cut = offline_cut if offline_cut else self.offline_cut
         # target: 유저 정보 담긴 dict 객체들의 list
         target = await self.d2util.members_offline_time(cut)
@@ -69,39 +74,44 @@ class DestinyBot(discord.Client):
                  'bungie_name': n.get('bungieNetUserInfo', {}).get('displayName', ""),
                  'last_online': dt.timedelta(seconds=int(dt.datetime.utcnow().timestamp()) - int(n['lastOnlineStatusChange']))}
                 for n in target]
-        msg_list = list()
-        msg_list.append(f"**{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 기준 {cut}일 이상 미접속자 목록**")
-        msg_list.extend(f"**{n['dp_name']}**`({n['membership_id']}, {n['bungie_name']})`\n`{n['last_online']}`" for n in data)
-        return "\n".join(msg_list)
+        msg_embed = discord.Embed(title=f"{cut}일 이상 미접속자 목록", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed.description = "\n".join(f"**{n['dp_name']}** ({n['bungie_name']}): `{n['last_online']}`" for n in data)
+        return msg_embed
 
-    async def msg_members_diff(self, joined: list, leaved: list):
-        # TODO 이거 나중가면 필요없을거같은데
-        msg_list = list()
-        msg_list.append(f"**{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 클랜원 목록 변동 감지!**")
-        msg_list.extend(f":blue_circle: **{n['destinyUserInfo']['LastSeenDisplayName']}** `({n['destinyUserInfo']['membershipId']}, {n['bungieNetUserInfo']['displayName']})`" for n in joined)
-        msg_list.extend(f":red_circle: **{n['destinyUserInfo']['LastSeenDisplayName']}** `({n['destinyUserInfo']['membershipId']}, {n['bungieNetUserInfo']['displayName']})`" for n in leaved)
-        return "\n".join(msg_list)
+    async def msg_members_diff(self, joined: list, leaved: list) -> discord.Embed:
+        msg_joined = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://destinytracker.com/destiny-2/profile/steam/{n['destinyUserInfo']['membershipId']}/overview) ({n['bungieNetUserInfo']['displayName']})" for n in joined]
+        msg_leaved = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://destinytracker.com/destiny-2/profile/steam/{n['destinyUserInfo']['membershipId']}/overview) ({n['bungieNetUserInfo']['displayName']})" for n in leaved]
+        clan_m_cnt = len(self.d2util.members_data_cache)
+        clan_m_cnt_old = clan_m_cnt - len(joined) + len(leaved)
+
+        msg_embed = discord.Embed(title="클랜원 목록 변동 안내", description=f"{clan_m_cnt_old}명 -> {clan_m_cnt}명 ({len(joined) - len(leaved)})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        if joined:
+            msg_embed.add_field(name=":blue_circle: Joined", value="\n".join(msg_joined), inline=False)
+        if leaved:
+            msg_embed.add_field(name=":red_circle: Leaved", value="\n".join(msg_leaved), inline=False)
+        return msg_embed
 
     async def alert(self):
         logger.debug("Alert Task start!")
         alert_target = [self.get_channel(id=n) for n in self.alert_target]
-        msg_list = []
         # 클랜원 변화 목록 파싱
         joined, leaved = await self.d2util.member_diff()
         # 단순 출력
         if joined or leaved:
             logger.info(f"{dt.datetime.now()} Alert detected: {len(joined)}, {len(leaved)}")
-            msg_list.append(await self.msg_members_diff(joined, leaved))
+            msg_embed = await self.msg_members_diff(joined, leaved)
 
-        # TODO joined list 의 member 에 대한 검증 필요
-        # Verify code here
+            # TODO joined list 의 member 에 대한 검증 필요
+            # Verify code here
 
-        # 대충 메시지 보내는 부분
-        msg = "\n\n".join(msg_list)
-        for target in alert_target:
-            if target is not None and msg:
-                await target.send(msg)
+            # 대충 메시지 보내는 부분
+            for target in alert_target:
+                if target is not None:
+                    await target.send(embed=msg_embed)
+        else:
+            pass
         logger.debug("Alert Task end")
+        return
 
     async def tasks(self):
         # 로딩될때까지 대기

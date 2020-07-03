@@ -1,12 +1,13 @@
 import logging
 import json
 import os
+import datetime
 
 import discord
 
 import bot
 
-__version__ = "0.1.6"
+__version__ = "0.2.0"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -34,21 +35,30 @@ async def on_message(message):
         return
 
     if message.content.startswith("$정보"):
-        await message.channel.send(f"**BIG DRIFTER 2**\nv{__version__}\nPID: {os.getpid()}\nLast update: {client.last_tasks_run}")
+        uptime = await client.get_uptime()
+        msg_embed = discord.Embed(description="by Krepe.Z (Krepe#4364)", timestamp=datetime.datetime.utcnow(), color=0x00ac00)
+        msg_embed.add_field(name="Version", value=__version__)
+        msg_embed.add_field(name="PID", value=str(os.getpid()))
+        msg_embed.add_field(name="Uptime", value=str(uptime), inline=False)
+        msg_embed.add_field(name="Last Clan info update", value=str(client.last_tasks_run), inline=False)
+        msg_embed.add_field(name="Invite link", value="[Click here to invite this bot](https://discord.com/oauth2/authorize?client_id=618095800483840001&scope=bot)", inline=False)
+        await message.channel.send(embed=msg_embed)
 
     elif message.content.startswith("$미접"):
         args: list = message.content.split()
         if len(args) < 2:
-            msg = await client.get_long_offline()
+            msg_embed = await client.get_long_offline()
+            msg = {"embed": msg_embed}
         elif args[1].isdigit():
-            msg = await client.get_long_offline(int(args[1]))
+            msg_embed = await client.get_long_offline(int(args[1]))
+            msg = {"embed": msg_embed}
         else:
-            msg = "올바른 미접 커트라인(일 단위)을 입력해주세요."
-        await message.channel.send(msg)
+            msg = {"content": "올바른 미접 커트라인(일 단위)을 입력해주세요."}
+        await message.channel.send(**msg)
 
     elif message.content.startswith("$온라인"):
-        msg = await client.get_clan_online()
-        await message.channel.send(msg)
+        msg_embed = await client.get_clan_online()
+        await message.channel.send(embed=msg_embed)
 
     elif message.content.startswith("$등록"):
         if message.author.guild_permissions.administrator:
@@ -59,10 +69,6 @@ async def on_message(message):
                 await message.channel.send(f"{message.channel.name} 채널이 알림 수신 목록에서 제거되었습니다.")
         else:
             await message.channel.send("서버 관리자 권한이 필요합니다!")
-
-    elif message.content.startswith("$업타임"):
-        uptime = await client.get_uptime()
-        await message.channel.send(f"작동시간: {uptime}")
 
 
 if __name__ == '__main__':
