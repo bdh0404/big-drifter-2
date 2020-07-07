@@ -79,12 +79,12 @@ class DestinyBot(discord.Client):
         return msg_embed
 
     async def msg_members_diff(self, joined: list, leaved: list) -> discord.Embed:
-        msg_joined = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://destinytracker.com/destiny-2/profile/steam/{n['destinyUserInfo']['membershipId']}/overview) ({n['bungieNetUserInfo']['displayName']})" for n in joined]
-        msg_leaved = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://destinytracker.com/destiny-2/profile/steam/{n['destinyUserInfo']['membershipId']}/overview) ({n['bungieNetUserInfo']['displayName']})" for n in leaved]
+        msg_joined = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://destinytracker.com/destiny-2/profile/steam/{n['destinyUserInfo']['membershipId']}/overview) ({n.get('bungieNetUserInfo', {}).get('displayName', '')})" for n in joined]
+        msg_leaved = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://destinytracker.com/destiny-2/profile/steam/{n['destinyUserInfo']['membershipId']}/overview) ({n.get('bungieNetUserInfo', {}).get('displayName', '')})" for n in leaved]
         clan_m_cnt = len(self.d2util.members_data_cache)
         clan_m_cnt_old = clan_m_cnt - len(joined) + len(leaved)
 
-        msg_embed = discord.Embed(title="클랜원 목록 변동 안내", description=f"{clan_m_cnt_old}명 -> {clan_m_cnt}명 ({len(joined) - len(leaved)})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed = discord.Embed(title="클랜원 목록 변동 안내", description=f"{clan_m_cnt_old}명 -> {clan_m_cnt}명 ({len(joined) - len(leaved):+})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
         if joined:
             msg_embed.add_field(name=":blue_circle: Joined", value="\n".join(msg_joined), inline=False)
         if leaved:

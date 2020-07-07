@@ -7,7 +7,7 @@ import discord
 
 import bot
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -18,6 +18,9 @@ logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler("app.log", encoding="utf-8")
 logger.addHandler(file_handler)
 logger.addHandler(logging.StreamHandler())
+
+discord_logger = logging.getLogger("discord")
+discord_logger.setLevel(logging.WARNING)
 
 
 @client.event
@@ -36,7 +39,7 @@ async def on_message(message):
 
     if message.content.startswith("$정보"):
         uptime = await client.get_uptime()
-        msg_embed = discord.Embed(description="by Krepe.Z (Krepe#4364)", timestamp=datetime.datetime.utcnow(), color=0x00ac00)
+        msg_embed = discord.Embed(title="BIG DRIFTER 2", description="by Krepe.Z (Krepe#4364)", timestamp=datetime.datetime.utcnow(), color=0x00ac00)
         msg_embed.add_field(name="Version", value=__version__)
         msg_embed.add_field(name="PID", value=str(os.getpid()))
         msg_embed.add_field(name="Uptime", value=str(uptime), inline=False)
