@@ -5,6 +5,7 @@ import os
 import logging
 
 import pydest
+import aiohttp
 
 
 logger = logging.getLogger("d2util")
@@ -83,6 +84,8 @@ class ClanUtil:
         if not resp['Response']['characterActivities'].get('data'):
             return "온라인",
         recent = sorted(resp['Response']['characterActivities']['data'].values(), key=lambda x: x["dateActivityStarted"])[-1]
+        if not recent["currentActivityHash"]:
+            return "온라인",
         activity = await self.destiny.decode_hash(recent["currentActivityHash"], "DestinyActivityDefinition", language="ko")
         if not activity["displayProperties"]["name"]:
             # 궤도상에 있는 경우

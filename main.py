@@ -7,7 +7,7 @@ import discord
 
 import bot
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
