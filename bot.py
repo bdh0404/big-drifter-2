@@ -3,6 +3,7 @@ import datetime as dt
 import json
 import logging
 import re
+import time
 
 import discord
 
@@ -23,11 +24,21 @@ class DestinyBot(discord.Client):
         self.st = dt.datetime.now()
         self.offline_cut = options.pop("offline_cut", 14)
         self.last_tasks_run = None
+        self._cache = {}
         with open("push_list.json", "r", encoding="utf-8") as f:
             self.alert_target: list = json.load(f).pop("alert_target", [])
 
         if not self.alert_target:
             logger.warning("Empty alert target list!!")
+
+    def get_cache(self, key, t=10):
+        if key in self._cache and self._cache[key][0] > time.time() - t:
+            return self._cache[key][1]
+        else:
+            return None
+
+    def set_cache(self, key, value):
+        self._cache[key] = (time.time(), value)
 
     async def reload_alert_target(self):
         with open("push_list.json", "r", encoding="utf-8") as f:
@@ -55,14 +66,40 @@ class DestinyBot(discord.Client):
         return str(dt.datetime.now() - self.st)
 
     async def get_clan_online(self) -> discord.Embed:
-        online = await self.d2util.online_members()
+        online = list(await self.d2util.online_members())
+        self.set_cache("online", online)
         data = [{'dp_name': n['destinyUserInfo']['LastSeenDisplayName'],
                  'membership_id': n['destinyUserInfo']['membershipId'],
                  'bungie_name': n.get('bungieNetUserInfo', {}).get('displayName', "")}
                 for n in online]
 
         msg_embed = discord.Embed(title="접속중인 클랜원 목록", timestamp=dt.datetime.utcnow(), color=0x00ac00)
-        msg_embed.add_field(name=f"온라인 ({len(data)})", value="\n".join(escape_markdown(f"{n['dp_name']} ({n['bungie_name']})") for n in data), inline=False)
+        msg_embed.add_field(name=f"온라인 ({len(data)})", value="\n".join(escape_markdown(f"{n['dp_name']}") for n in data), inline=False)
+        return msg_embed
+
+    async def get_clan_online_detail(self):
+        online = self.get_cache("online")
+        if online is None:
+            online = await self.d2util.online_members()
+        data = [{'dp_name': n['destinyUserInfo']['LastSeenDisplayName'],
+                 'membership_type': n['destinyUserInfo']['membershipType'],
+                 'membership_id': n['destinyUserInfo']['membershipId']}
+                for n in online]
+
+        res = await asyncio.gather(*[self.d2util.user_activity(member["membership_type"], member["membership_id"]) for member in data])
+        for i, act in enumerate(res):
+            data[i]["activity"] = act
+
+        data_by_type = {}
+        for n in data:
+            if data_by_type.get(n["activity"][0]):
+                data_by_type[n["activity"][0]].append(n)
+            else:
+                data_by_type[n["activity"][0]] = [n]
+
+        msg_embed = discord.Embed(title=f"접속중인 클랜원 목록 ({len(data)})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        for act_type, members in data_by_type.items():
+            msg_embed.add_field(name=f"{act_type} ({len(members)})", value="\n".join(f"{escape_markdown(n['dp_name'])}{' - ' + ': '.join(n['activity'][1:]) if len(n['activity']) > 1 else ''}" for n in members), inline=False)
         return msg_embed
 
     async def get_long_offline(self, offline_cut=0) -> discord.Embed:
@@ -135,6 +172,3 @@ class DestinyBot(discord.Client):
         self.loop.create_task(self.tasks())
         # super 실행
         super(DestinyBot, self).run(*args, **kwargs)
-
-
-

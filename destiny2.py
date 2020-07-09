@@ -17,6 +17,8 @@ def str_to_datetime(date_time: str):
 class ClanUtil:
     def __init__(self, api_key: str, group_id: int, members_data_path="members.json", loop=None) -> (list, list):
         self.destiny = pydest.Pydest(api_key, loop)
+        # 한국어가 pydest 모듈에만 목록에 존재하지 않아서 임시로 땜빵...
+        self.destiny._manifest.manifest_files["ko"] = ""
         self.group_id = group_id
         self.members_data_path = members_data_path
         self.members_data_cache = []
@@ -75,3 +77,18 @@ class ClanUtil:
         members: list = resp["Response"]["results"]
         online = filter(lambda x: x.get("isOnline"), members)
         return online
+
+    async def user_activity(self, membership_type: int, membership_id: int) -> tuple:
+        resp = await self.destiny.api.get_profile(membership_type, membership_id, [204])
+        if not resp['Response']['characterActivities'].get('data'):
+            return "온라인",
+        recent = sorted(resp['Response']['characterActivities']['data'].values(), key=lambda x: x["dateActivityStarted"])[-1]
+        activity = await self.destiny.decode_hash(recent["currentActivityHash"], "DestinyActivityDefinition", language="ko")
+        if not activity["displayProperties"]["name"]:
+            # 궤도상에 있는 경우
+            return "궤도",
+        try:
+            activity_mode = await self.destiny.decode_hash(recent["currentActivityModeHash"], "DestinyActivityModeDefinition", language="ko")
+        except pydest.pydest.PydestException as e:
+            activity_mode = await self.destiny.decode_hash(activity["activityTypeHash"], "DestinyActivityTypeDefinition", language="ko")
+        return activity_mode["displayProperties"]["name"], activity["displayProperties"]["name"]

@@ -7,7 +7,7 @@ import discord
 
 import bot
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -60,7 +60,11 @@ async def on_message(message):
         await message.channel.send(**msg)
 
     elif message.content.startswith("$온라인"):
-        msg_embed = await client.get_clan_online()
+        # msg_embed = await client.get_clan_online()
+        # resp_msg: discord.Message = await message.channel.send(embed=msg_embed)
+        # msg_embed = await client.get_clan_online_detail()
+        # await resp_msg.edit(embed=msg_embed)
+        msg_embed = await client.get_clan_online_detail()
         await message.channel.send(embed=msg_embed)
 
     elif message.content.startswith("$등록"):
