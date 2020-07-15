@@ -2,12 +2,13 @@ import logging
 import json
 import os
 import datetime
+import re
 
 import discord
 
 import bot
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -71,9 +72,49 @@ async def on_message(message):
         if message.author.guild_permissions.administrator:
             ret = await client.toggle_alert_target(message.channel.id)
             if ret == 1:
-                await message.channel.send(f"{message.channel.name} 채널이 알림 수신 목록에 추가되었습니다.")
+                await message.channel.send(f"<#{message.channel.id}> 채널이 알림 수신 목록에 추가되었습니다.")
             elif ret == 0:
-                await message.channel.send(f"{message.channel.name} 채널이 알림 수신 목록에서 제거되었습니다.")
+                await message.channel.send(f"<#{message.channel.id}> 채널이 알림 수신 목록에서 제거되었습니다.")
+        else:
+            await message.channel.send("서버 관리자 권한이 필요합니다!")
+
+    elif message.content.startswith("$휴가"):
+        if message.author.guild_permissions.administrator:
+            cmd, *desc = message.content.split("\n")
+            args: list = cmd.split()
+            arg1_id = None
+            arg1_date = None
+            arg2_date = None
+            if len(args) > 2:
+                arg1_id = re.search(r"^[0-9]{19}$", args[1].strip())
+                arg1_id = arg1_id.group(1) if arg1_id else 0
+                arg2_date = re.search(r"([0-9]{4})?[-.]?([0-9]{1,2})[-.]([0-9]{1,2})", args[2])
+                # arg1_steam = re.search(r"^[0-9]{17}$", args[1].strip() if len(args) > 1 else "")
+            elif len(args) > 1:
+                arg1_date = re.search(r"([0-9]{4})?[-.]?([0-9]{1,2})[-.]([0-9]{1,2})", args[1])
+
+            if arg1_date:
+                # 날짜만 입력한 경우 (자기 자신 등록)
+                msg = {"content": "해당 기능은 아직 제공되지 않습니다."}
+            elif arg2_date:
+                # 스팀 아이디 or 번지넷 멤버십 ID / 휴가일 입력
+                bungie_id: int = await client.d2util.is_member_in_clan(membership_id=arg1_id, name=args[1])
+                if bungie_id:
+                    y, m, d = arg2_date.groups()
+                    if not y:
+                        y = datetime.datetime.today().year
+                    else:
+                        y = int(y)
+                    m, d = int(m), int(d)
+                    end_date = datetime.datetime(year=y, month=m, day=d)
+                    await client.register_rest(bungie_id, end_date, "\n".join(desc))
+                    msg = {"content": f"{end_date.strftime('%Y-%m-%d')} 까지 휴가로 등록되었습니다."}
+                else:
+                    msg = {"content": "해당 유저를 찾을 수 없습니다."}
+            else:
+                # 제대로 입력하지 않은 경우
+                msg = {"content": "양식에 따라 입력해주세요.\n> `$휴가 [닉네임|멤버십ID] (휴가종료일)`\n휴가종료일의 경우 `YYYY-MM-DD` 또는 `YYYY.MM.DD` 형식으로 입력해주세요."}
+            await message.channel.send(**msg)
         else:
             await message.channel.send("서버 관리자 권한이 필요합니다!")
 

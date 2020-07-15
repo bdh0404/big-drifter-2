@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import time
+import os
 
 import discord
 
@@ -25,8 +26,17 @@ class DestinyBot(discord.Client):
         self.offline_cut = options.pop("offline_cut", 14)
         self.last_tasks_run = None
         self._cache = {}
-        with open("push_list.json", "r", encoding="utf-8") as f:
+        self.rest = {}
+
+        self._path_push_list = "push_list.json"
+        self._path_rest_list = "rest_list.json"
+        with open(self._path_push_list, "r", encoding="utf-8") as f:
             self.alert_target: list = json.load(f).pop("alert_target", [])
+        if not os.path.exists("rest_list.json"):
+            with open(self._path_rest_list, "w", encoding="utf-8") as f:
+                f.write("{}")
+        with open(self._path_rest_list, "r", encoding="utf-8") as f:
+            self.rest = json.load(f)
 
         if not self.alert_target:
             logger.warning("Empty alert target list!!")
@@ -41,15 +51,15 @@ class DestinyBot(discord.Client):
         self._cache[key] = (time.time(), value)
 
     async def reload_alert_target(self):
-        with open("push_list.json", "r", encoding="utf-8") as f:
+        with open(self._path_push_list, "r", encoding="utf-8") as f:
             self.alert_target = json.load(f).pop("alert_target", [])
         return len(self.alert_target)
 
     async def update_alert_target(self):
-        with open("push_list.json", "r", encoding="utf-8") as f:
+        with open(self._path_push_list, "r", encoding="utf-8") as f:
             push_list = json.load(f)
         push_list["alert_target"] = self.alert_target
-        with open("push_list.json", "w", encoding="utf-8") as f:
+        with open(self._path_push_list, "w", encoding="utf-8") as f:
             json.dump(push_list, f, indent=2)
 
     async def toggle_alert_target(self, channel_id: int) -> bool:
@@ -106,13 +116,15 @@ class DestinyBot(discord.Client):
         cut = offline_cut if offline_cut else self.offline_cut
         # target: 유저 정보 담긴 dict 객체들의 list
         target = await self.d2util.members_offline_time(cut)
+        await self.update_rest()
         data = [{'dp_name': n['destinyUserInfo']['LastSeenDisplayName'],
                  'membership_id': n['destinyUserInfo']['membershipId'],
                  'bungie_name': n.get('bungieNetUserInfo', {}).get('displayName', ""),
-                 'last_online': dt.timedelta(seconds=int(dt.datetime.utcnow().timestamp()) - int(n['lastOnlineStatusChange']))}
+                 'last_online': dt.timedelta(seconds=int(dt.datetime.utcnow().timestamp()) - int(n['lastOnlineStatusChange'])),
+                 'is_in_rest': n['destinyUserInfo']['membershipId'] in self.rest}
                 for n in target]
         msg_embed = discord.Embed(title=f"{cut}일 이상 미접속자 목록", timestamp=dt.datetime.utcnow(), color=0x00ac00)
-        msg_embed.description = "\n".join(f"**{n['dp_name']}** ({n['bungie_name']}): `{n['last_online']}`" for n in data)
+        msg_embed.description = "\n".join((f"~~**{escape_markdown(n['dp_name'])}** ({escape_markdown(n['bungie_name'])})~~" if n['is_in_rest'] else f"**{escape_markdown(n['dp_name'])}** ({escape_markdown(n['bungie_name'])})") + f": `{n['last_online']}`" for n in data)
         return msg_embed
 
     async def msg_members_diff(self, joined: list, leaved: list) -> discord.Embed:
@@ -127,6 +139,28 @@ class DestinyBot(discord.Client):
         if leaved:
             msg_embed.add_field(name=":red_circle: Leaved", value="\n".join(msg_leaved), inline=False)
         return msg_embed
+
+    async def register_rest(self, membership_id: int, end_time: dt.datetime, description: str):
+        if len(description) > 500:
+            description = description[:500]
+        self.rest[membership_id] = {
+            "end_time": end_time.strftime("%Y-%m-%d"),
+            "description": description
+        }
+        with open(self._path_rest_list, "w", encoding="utf-8") as f:
+            json.dump(self.rest, f, ensure_ascii=False, indent=2)
+
+    async def deregister_rest(self, membership_id: int):
+        self.rest.pop(membership_id)
+        with open(self._path_rest_list, "w", encoding="utf-8") as f:
+            json.dump(self.rest, f, ensure_ascii=False, indent=2)
+
+    async def update_rest(self):
+        today = dt.datetime.today()
+        members_id = [n["destinyUserInfo"]["membershipId"] for n in self.d2util.members_data_cache]
+        self.rest = {k: v for k, v in self.rest.items() if dt.datetime.strptime(v["end_time"], "%Y-%m-%d") > today and k in members_id}
+        with open(self._path_rest_list, "w", encoding="utf-8") as f:
+            json.dump(self.rest, f, ensure_ascii=False, indent=2)
 
     async def alert(self):
         logger.debug("Alert Task start!")

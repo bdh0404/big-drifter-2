@@ -95,3 +95,17 @@ class ClanUtil:
         except pydest.pydest.PydestException as e:
             activity_mode = await self.destiny.decode_hash(activity["activityTypeHash"], "DestinyActivityTypeDefinition", language="ko")
         return activity_mode["displayProperties"]["name"], activity["displayProperties"]["name"]
+
+    async def is_member_in_clan(self, membership_id: int, name: str = "") -> int:
+        if membership_id:
+            bungie_id_list = [n["destinyUserInfo"]["membershipId"] for n in self.members_data_cache]
+            if membership_id in bungie_id_list:
+                return membership_id
+            else:
+                return 0
+        elif name:
+            bungie_name_list = [n for n in self.members_data_cache if n["destinyUserInfo"]["LastSeenDisplayName"] == name]
+            if bungie_name_list:
+                return bungie_name_list[0]["destinyUserInfo"]["membershipId"]
+            else:
+                return 0
