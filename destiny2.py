@@ -98,7 +98,7 @@ class ClanUtil:
 
     async def is_member_in_clan(self, membership_id: int, name: str = "") -> int:
         if membership_id:
-            bungie_id_list = [n["destinyUserInfo"]["membershipId"] for n in self.members_data_cache]
+            bungie_id_list = {int(n["destinyUserInfo"]["membershipId"]) for n in self.members_data_cache}
             if membership_id in bungie_id_list:
                 return membership_id
             else:
@@ -109,3 +109,5 @@ class ClanUtil:
                 return bungie_name_list[0]["destinyUserInfo"]["membershipId"]
             else:
                 return 0
+        else:
+            return 0

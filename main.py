@@ -8,7 +8,7 @@ import discord
 
 import bot
 
-__version__ = "0.2.4"
+__version__ = "0.2.5"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -87,7 +87,7 @@ async def on_message(message):
             arg2_date = None
             if len(args) > 2:
                 arg1_id = re.search(r"^[0-9]{19}$", args[1].strip())
-                arg1_id = arg1_id.group(1) if arg1_id else 0
+                arg1_id = int(arg1_id.group()) if arg1_id else 0
                 arg2_date = re.search(r"([0-9]{4})?[-.]?([0-9]{1,2})[-.]([0-9]{1,2})", args[2])
                 # arg1_steam = re.search(r"^[0-9]{17}$", args[1].strip() if len(args) > 1 else "")
             elif len(args) > 1:
