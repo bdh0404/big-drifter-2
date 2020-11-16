@@ -24,6 +24,7 @@ class DestinyBot(discord.Client):
         self.d2util = destiny2.ClanUtil(options.pop("bungie_api_key"), options.pop("group_id"), loop=self.loop)
         self.st = dt.datetime.now()
         self.offline_cut = options.pop("offline_cut", 14)
+        self.online_command_preview = options.pop("online_command_preview", False)
         self.last_tasks_run = None
         self._cache = {}
         self.rest = {}

@@ -8,7 +8,7 @@ import discord
 
 import bot
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -29,8 +29,10 @@ async def on_ready():
     logger.info(f"Logged in as {client.user}")
     # 상태 업데이트
     client_activity = discord.Activity(name="DESTINY 2", type=discord.ActivityType.watching)
-    logger.info(f"Updated bot status!")
     await client.change_presence(status=discord.Status.online, activity=client_activity)
+    logger.info(f"Updated bot status!")
+    await client.d2util.destiny.update_manifest("ko")
+    logger.info("Updated Destiny 2 manifest!")
 
 
 @client.event
@@ -45,7 +47,7 @@ async def on_message(message):
         msg_embed.add_field(name="PID", value=str(os.getpid()))
         msg_embed.add_field(name="Uptime", value=str(uptime), inline=False)
         msg_embed.add_field(name="Last Clan info update", value=str(client.last_tasks_run), inline=False)
-        msg_embed.add_field(name="Invite link", value="[Click here to invite this bot](https://discord.com/oauth2/authorize?client_id=618095800483840001&scope=bot)", inline=False)
+        # msg_embed.add_field(name="Invite link", value="[Click here to invite this bot](https://discord.com/oauth2/authorize?client_id=618095800483840001&scope=bot)", inline=False)
         await message.channel.send(embed=msg_embed)
 
     elif message.content.startswith("$미접"):
@@ -61,12 +63,14 @@ async def on_message(message):
         await message.channel.send(**msg)
 
     elif message.content.startswith("$온라인"):
-        # msg_embed = await client.get_clan_online()
-        # resp_msg: discord.Message = await message.channel.send(embed=msg_embed)
-        # msg_embed = await client.get_clan_online_detail()
-        # await resp_msg.edit(embed=msg_embed)
-        msg_embed = await client.get_clan_online_detail()
-        await message.channel.send(embed=msg_embed)
+        if client.online_command_preview:
+            msg_embed = await client.get_clan_online()
+            resp_msg: discord.Message = await message.channel.send(embed=msg_embed)
+            msg_embed = await client.get_clan_online_detail()
+            await resp_msg.edit(embed=msg_embed)
+        else:
+            msg_embed = await client.get_clan_online_detail()
+            await message.channel.send(embed=msg_embed)
 
     elif message.content.startswith("$등록"):
         if message.author.guild_permissions.administrator:

@@ -2,5 +2,6 @@
   "bungie_api_key": "",
   "discord_token": "",
   "group_id": 0,
-  "offline_cut": 14
+  "offline_cut": 14,
+  "online_command_preview": true
 }
