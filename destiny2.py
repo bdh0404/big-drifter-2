@@ -80,7 +80,15 @@ class ClanUtil:
         return online
 
     async def user_activity(self, membership_type: int, membership_id: int) -> tuple:
-        resp = await self.destiny.api.get_profile(membership_type, membership_id, [204])
+        try:
+            resp = await asyncio.wait_for(self.destiny.api.get_profile(membership_type, membership_id, [204]), timeout=10)
+        except asyncio.TimeoutError:
+            logger.warning(f"{membership_id} / Request Timeout")
+            return "온라인(시간 초과)",
+        # 오류
+        if not resp.get("Response") or resp.get("ErrorCode") != 1:
+            logger.warning(f"{membership_id} / {resp.get('ErrorCode', 'Wrong response form')}")
+            return "온라인(응답 오류)",
         if not resp['Response']['characterActivities'].get('data'):
             return "온라인",
         recent = sorted(resp['Response']['characterActivities']['data'].values(), key=lambda x: x["dateActivityStarted"])[-1]

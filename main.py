@@ -8,7 +8,7 @@ import discord
 
 import bot
 
-__version__ = "0.2.6"
+__version__ = "0.2.7"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -28,11 +28,14 @@ discord_logger.setLevel(logging.WARNING)
 async def on_ready():
     logger.info(f"Logged in as {client.user}")
     # 상태 업데이트
+    client_activity_init = discord.Activity(name="Initializing", type=discord.ActivityType.custom)
+    await client.change_presence(status=discord.Status.online, activity=client_activity_init)
+    logger.info("Start initializing...")
     client_activity = discord.Activity(name="DESTINY 2", type=discord.ActivityType.watching)
-    await client.change_presence(status=discord.Status.online, activity=client_activity)
-    logger.info(f"Updated bot status!")
     await client.d2util.destiny.update_manifest("ko")
     logger.info("Updated Destiny 2 manifest!")
+    await client.change_presence(status=discord.Status.online, activity=client_activity)
+    logger.info(f"Updated bot status!")
 
 
 @client.event
