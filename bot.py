@@ -129,8 +129,8 @@ class DestinyBot(discord.Client):
         return msg_embed
 
     async def msg_members_diff(self, joined: list, leaved: list) -> discord.Embed:
-        msg_joined = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://destinytracker.com/destiny-2/profile/steam/{n['destinyUserInfo']['membershipId']}/overview) ({n.get('bungieNetUserInfo', {}).get('displayName', '')})" for n in joined]
-        msg_leaved = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://destinytracker.com/destiny-2/profile/steam/{n['destinyUserInfo']['membershipId']}/overview) ({n.get('bungieNetUserInfo', {}).get('displayName', '')})" for n in leaved]
+        msg_joined = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://www.bungie.net/ko/Profile/3/{n['destinyUserInfo']['membershipId']}) ({n.get('bungieNetUserInfo', {}).get('displayName', '')})" for n in joined]
+        msg_leaved = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://www.bungie.net/ko/Profile/3/{n['destinyUserInfo']['membershipId']}) ({n.get('bungieNetUserInfo', {}).get('displayName', '')})" for n in leaved]
         clan_m_cnt = len(self.d2util.members_data_cache)
         clan_m_cnt_old = clan_m_cnt - len(joined) + len(leaved)
 
