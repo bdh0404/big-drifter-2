@@ -5,6 +5,7 @@ import logging
 import re
 import time
 import os
+from typing import List
 
 import discord
 
@@ -16,6 +17,16 @@ logger = logging.getLogger("bot")
 
 def escape_markdown(s: str) -> str:
     return re.sub(r"([-_~`*])", "\\\\\\1", s)
+
+
+def bnet_user_format(d: dict) -> str:
+    name = f"**{escape_markdown(d['destinyUserInfo']['bungieGlobalDisplayName'])}**#{d['destinyUserInfo']['bungieGlobalDisplayNameCode']:04d}" if d['destinyUserInfo'].get("bungieGlobalDisplayName") else f"**{d['destinyUserInfo']['LastSeenDisplayName']}**"
+    url = f"https://www.bungie.net/7/ko/User/Profile/{d['bungieNetUserInfo']['membershipType']}/{d['bungieNetUserInfo']['membershipId']}"\
+        if d.get("bungieNetUserInfo")\
+        else f"https://www.bungie.net/7/ko/User/Profile/{d['destinyUserInfo']['membershipType']}/{d['destinyUserInfo']['membershipId']}"
+    bnet_name = f" ({d.get('bungieNetUserInfo', {}).get('displayName', '')})" if d.get('bungieNetUserInfo', {}).get('displayName', '') else ""
+    result = f"[{name}]({url}){bnet_name}"
+    return result
 
 
 class DestinyBot(discord.Client):
@@ -128,18 +139,42 @@ class DestinyBot(discord.Client):
         msg_embed.description = "\n".join((f"~~**{escape_markdown(n['dp_name'])}** ({escape_markdown(n['bungie_name'])})~~" if n['is_in_rest'] else f"**{escape_markdown(n['dp_name'])}** ({escape_markdown(n['bungie_name'])})") + f": `{n['last_online']}`" for n in data)
         return msg_embed
 
-    async def msg_members_diff(self, joined: list, leaved: list) -> discord.Embed:
-        msg_joined = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://www.bungie.net/ko/Profile/3/{n['destinyUserInfo']['membershipId']}) ({n.get('bungieNetUserInfo', {}).get('displayName', '')})" for n in joined]
-        msg_leaved = [f"[{n['destinyUserInfo']['LastSeenDisplayName']}](https://www.bungie.net/ko/Profile/3/{n['destinyUserInfo']['membershipId']}) ({n.get('bungieNetUserInfo', {}).get('displayName', '')})" for n in leaved]
+    async def msg_members_diff(self, joined: list, left: list) -> List[discord.Embed]:
+        list_joined = [bnet_user_format(n) for n in joined]
+        list_left = [bnet_user_format(n) for n in left]
         clan_m_cnt = len(self.d2util.members_data_cache)
-        clan_m_cnt_old = clan_m_cnt - len(joined) + len(leaved)
+        clan_m_cnt_old = clan_m_cnt - len(joined) + len(left)
 
-        msg_embed = discord.Embed(title="클랜원 목록 변동 안내", description=f"{clan_m_cnt_old}명 -> {clan_m_cnt}명 ({len(joined) - len(leaved):+})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
-        if joined:
-            msg_embed.add_field(name=":blue_circle: Joined", value="\n".join(msg_joined), inline=False)
-        if leaved:
-            msg_embed.add_field(name=":red_circle: Leaved", value="\n".join(msg_leaved), inline=False)
-        return msg_embed
+        msg_joined = []
+        msg_left = []
+        for m in list_joined:
+            if msg_joined and len(msg_joined[-1]) + len(m) < 1024:
+                msg_joined[-1] += m + "\n"
+            else:
+                msg_joined.append(m + "\n")
+        for m in list_left:
+            if msg_left and len(msg_left[-1]) + len(m) < 1024:
+                msg_left[-1] += m + "\n"
+            else:
+                msg_left.append(m + "\n")
+
+        msg_embed = discord.Embed(title="클랜원 목록 변동 안내", description=f"{clan_m_cnt_old}명 -> {clan_m_cnt}명 ({len(joined) - len(left):+})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        embeds = [msg_embed]
+        field_cnt = 0
+        while True:
+            if field_cnt >= 5:
+                embeds.append(discord.Embed(description="클랜원 목록 변동 안내 (+)", timestamp=dt.datetime.utcnow(), color=0x00ac00))
+                field_cnt = 0
+
+            if msg_joined:
+                embeds[-1].add_field(name=":blue_circle: Joined", value=msg_joined.pop(0), inline=False)
+                field_cnt += 1
+            elif msg_left:
+                embeds[-1].add_field(name=":red_circle: Left", value=msg_left.pop(0), inline=False)
+                field_cnt += 1
+            else:
+                break
+        return embeds
 
     async def register_rest(self, membership_id: int, end_time: dt.datetime, description: str):
         if len(description) > 500:
@@ -167,11 +202,11 @@ class DestinyBot(discord.Client):
         logger.debug("Alert Task start!")
         alert_target = [self.get_channel(id=n) for n in self.alert_target]
         # 클랜원 변화 목록 파싱
-        joined, leaved = await self.d2util.member_diff()
+        joined, left = await self.d2util.member_diff()
         # 단순 출력
-        if joined or leaved:
-            logger.info(f"{dt.datetime.now()} Alert detected: {len(joined)}, {len(leaved)}")
-            msg_embed = await self.msg_members_diff(joined, leaved)
+        if joined or left:
+            logger.info(f"{dt.datetime.now()} Alert detected: {len(joined)}, {len(left)}")
+            msg_embed = await self.msg_members_diff(joined, left)
 
             # TODO joined list 의 member 에 대한 검증 필요
             # Verify code here
@@ -179,7 +214,8 @@ class DestinyBot(discord.Client):
             # 대충 메시지 보내는 부분
             for target in alert_target:
                 if target is not None:
-                    await target.send(embed=msg_embed)
+                    for msg in msg_embed:
+                        await target.send(embed=msg)
         else:
             pass
         logger.debug("Alert Task end")
