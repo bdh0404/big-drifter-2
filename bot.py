@@ -20,6 +20,7 @@ def escape_markdown(s: str) -> str:
 
 
 def bnet_user_format(d: dict, bold=True, skip_bnet_name=True) -> str:
+    print(d)
     if bold:
         name = f"**{escape_markdown(d['destinyUserInfo']['bungieGlobalDisplayName'])}**#{d['destinyUserInfo']['bungieGlobalDisplayNameCode']:04d}" if d['destinyUserInfo'].get("bungieGlobalDisplayName") else f"**{d['destinyUserInfo']['LastSeenDisplayName']}**"
     else:
@@ -224,7 +225,7 @@ class DestinyBot(discord.Client):
     async def msg_rest_list(self):
         await self.update_rest()
         msg_embed = discord.Embed(title="휴가중인 클랜원 목록 조회", timestamp=dt.datetime.utcnow(), color=0x00ac00)
-        msg_embed.description = "\n".join(f"{bnet_user_format(self.d2util.find_member_from_cache(bungie_name=n['bungie_name']))} `~{n['end_time']}`\n> " + n["description"].replace("\n", "\n> ") for n in self.rest.values())
+        msg_embed.description = "\n".join(f"{bnet_user_format(self.d2util.find_member_from_cache(bungie_name=v['bungie_name'], membership_id=k))} `~{v['end_time']}`\n> " + v["description"].replace("\n", "\n> ") for k, v in self.rest.items())
         return msg_embed
 
     async def alert(self):
