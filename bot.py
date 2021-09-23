@@ -19,12 +19,21 @@ def escape_markdown(s: str) -> str:
     return re.sub(r"([-_~`*])", "\\\\\\1", s)
 
 
-def bnet_user_format(d: dict) -> str:
-    name = f"**{escape_markdown(d['destinyUserInfo']['bungieGlobalDisplayName'])}**#{d['destinyUserInfo']['bungieGlobalDisplayNameCode']:04d}" if d['destinyUserInfo'].get("bungieGlobalDisplayName") else f"**{d['destinyUserInfo']['LastSeenDisplayName']}**"
-    url = f"https://www.bungie.net/7/ko/User/Profile/{d['bungieNetUserInfo']['membershipType']}/{d['bungieNetUserInfo']['membershipId']}"\
-        if d.get("bungieNetUserInfo")\
-        else f"https://www.bungie.net/7/ko/User/Profile/{d['destinyUserInfo']['membershipType']}/{d['destinyUserInfo']['membershipId']}"
-    bnet_name = f" ({d.get('bungieNetUserInfo', {}).get('displayName', '')})" if d.get('bungieNetUserInfo', {}).get('displayName', '') else ""
+def bnet_user_format(d: dict, bold=True, skip_bnet_name=True) -> str:
+    if bold:
+        name = f"**{escape_markdown(d['destinyUserInfo']['bungieGlobalDisplayName'])}**#{d['destinyUserInfo']['bungieGlobalDisplayNameCode']:04d}" if d['destinyUserInfo'].get("bungieGlobalDisplayName") else f"**{d['destinyUserInfo']['LastSeenDisplayName']}**"
+    else:
+        name = f"{escape_markdown(d['destinyUserInfo']['bungieGlobalDisplayName'])}#{d['destinyUserInfo']['bungieGlobalDisplayNameCode']:04d}" if d['destinyUserInfo'].get("bungieGlobalDisplayName") else f"{d['destinyUserInfo']['LastSeenDisplayName']}"
+    url = f"https://www.bungie.net/7/ko/User/Profile/{d['bungieNetUserInfo']['membershipType']}/{d['bungieNetUserInfo']['membershipId']}" if d.get("bungieNetUserInfo") else f"https://www.bungie.net/7/ko/User/Profile/{d['destinyUserInfo']['membershipType']}/{d['destinyUserInfo']['membershipId']}"
+
+    if not d.get('bungieNetUserInfo', {}).get('displayName', ''):
+        bnet_name = ""
+    elif skip_bnet_name and d['destinyUserInfo'].get("bungieGlobalDisplayName"):
+        bnet_name = f" ({escape_markdown(d['bungieNetUserInfo']['displayName'])})" if d["destinyUserInfo"]["bungieGlobalDisplayName"] != d["bungieNetUserInfo"]["displayName"] else ""
+    elif skip_bnet_name:
+        bnet_name = f" ({escape_markdown(d['bungieNetUserInfo']['displayName'])})" if d['destinyUserInfo']['LastSeenDisplayName'] != d["bungieNetUserInfo"]["displayName"] else ""
+    else:
+        bnet_name = f" ({escape_markdown(d['bungieNetUserInfo']['displayName'])})"
     result = f"[{name}]({url}){bnet_name}"
     return result
 
@@ -129,14 +138,13 @@ class DestinyBot(discord.Client):
         # target: 유저 정보 담긴 dict 객체들의 list
         target = await self.d2util.members_offline_time(cut)
         await self.update_rest()
-        data = [{'dp_name': n['destinyUserInfo']['LastSeenDisplayName'],
+        data = [{'name': bnet_user_format(n),
                  'membership_id': n['destinyUserInfo']['membershipId'],
-                 'bungie_name': n.get('bungieNetUserInfo', {}).get('displayName', ""),
                  'last_online': dt.timedelta(seconds=int(dt.datetime.utcnow().timestamp()) - int(n['lastOnlineStatusChange'])),
                  'is_in_rest': n['destinyUserInfo']['membershipId'] in self.rest}
                 for n in target]
         msg_embed = discord.Embed(title=f"{cut}일 이상 미접속자 목록", timestamp=dt.datetime.utcnow(), color=0x00ac00)
-        msg_embed.description = "\n".join((f"~~**{escape_markdown(n['dp_name'])}** ({escape_markdown(n['bungie_name'])})~~" if n['is_in_rest'] else f"**{escape_markdown(n['dp_name'])}** ({escape_markdown(n['bungie_name'])})") + f": `{n['last_online']}`" for n in data)
+        msg_embed.description = "\n".join((f"~~{n['name']}~~" if n['is_in_rest'] else n["name"]) + f": `{n['last_online']}`" for n in data)
         return msg_embed
 
     async def msg_members_diff(self, joined: list, left: list) -> List[discord.Embed]:
@@ -176,10 +184,13 @@ class DestinyBot(discord.Client):
                 break
         return embeds
 
-    async def register_rest(self, membership_id: int, end_time: dt.datetime, description: str):
+    async def register_rest(self, group_member: dict, end_time: dt.datetime, description: str):
+        membership_id = group_member["destinyUserInfo"]["membershipId"]
         if len(description) > 500:
             description = description[:500]
         self.rest[membership_id] = {
+            "bungie_name": destiny2.get_bungie_name(group_member),
+            "display_name": group_member["destinyUserInfo"]["LastSeenDisplayName"],
             "end_time": end_time.strftime("%Y-%m-%d"),
             "description": description
         }
@@ -192,11 +203,29 @@ class DestinyBot(discord.Client):
             json.dump(self.rest, f, ensure_ascii=False, indent=2)
 
     async def update_rest(self):
+        # 휴가 목록 갱신: 날짜 만료된 클랜원, 클랜을 나간 클랜원 제거
+        # 추가로 닉네임 정보 없으면 넣기
         today = dt.datetime.today()
-        members_id = [n["destinyUserInfo"]["membershipId"] for n in self.d2util.members_data_cache]
-        self.rest = {k: v for k, v in self.rest.items() if dt.datetime.strptime(v["end_time"], "%Y-%m-%d") > today and k in members_id}
+        members = {n["destinyUserInfo"]["membershipId"]: n for n in self.d2util.members_data_cache}
+        rest_new = {}
+        for k, v in self.rest.items():
+            if dt.datetime.strptime(v["end_time"], "%Y-%m-%d") < today or k not in members:
+                continue
+            if not v.get("bungie_name"):
+                v["bungie_name"] = destiny2.get_bungie_name(members[k]) if destiny2.get_bungie_name(members[k]) else ""
+            if not v.get("display_name"):
+                v["display_name"] = members[k]["destinyUserInfo"]["LastSeenDisplayName"]
+            rest_new[k] = v
+
+        self.rest = {k: v for k, v in self.rest.items() if dt.datetime.strptime(v["end_time"], "%Y-%m-%d") > today and k in members.keys()}
         with open(self._path_rest_list, "w", encoding="utf-8") as f:
             json.dump(self.rest, f, ensure_ascii=False, indent=2)
+
+    async def msg_rest_list(self):
+        await self.update_rest()
+        msg_embed = discord.Embed(title="휴가중인 클랜원 목록 조회", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed.description = "\n".join(f"{bnet_user_format(self.d2util.find_member_from_cache(bungie_name=n['bungie_name']))} `~{n['end_time']}`\n> " + n["description"].replace("\n", "\n> ") for n in self.rest.values())
+        return msg_embed
 
     async def alert(self):
         logger.debug("Alert Task start!")

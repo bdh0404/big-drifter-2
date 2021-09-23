@@ -8,7 +8,7 @@ import discord
 
 import bot
 
-__version__ = "0.2.8"
+__version__ = "0.3.0"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -50,7 +50,6 @@ async def on_message(message):
         msg_embed.add_field(name="PID", value=str(os.getpid()))
         msg_embed.add_field(name="Uptime", value=str(uptime), inline=False)
         msg_embed.add_field(name="Last Clan info update", value=str(client.last_tasks_run), inline=False)
-        # msg_embed.add_field(name="Invite link", value="[Click here to invite this bot](https://discord.com/oauth2/authorize?client_id=618095800483840001&scope=bot)", inline=False)
         await message.channel.send(embed=msg_embed)
 
     elif message.content.startswith("$미접"):
@@ -87,40 +86,40 @@ async def on_message(message):
 
     elif message.content.startswith("$휴가"):
         if message.author.guild_permissions.administrator:
-            cmd, *desc = message.content.split("\n")
-            args: list = cmd.split()
-            arg1_id = None
-            arg1_date = None
-            arg2_date = None
-            if len(args) > 2:
-                arg1_id = re.search(r"^[0-9]{19}$", args[1].strip())
-                arg1_id = int(arg1_id.group()) if arg1_id else 0
-                arg2_date = re.search(r"([0-9]{4})?[-.]?([0-9]{1,2})[-.]([0-9]{1,2})", args[2])
-                # arg1_steam = re.search(r"^[0-9]{17}$", args[1].strip() if len(args) > 1 else "")
-            elif len(args) > 1:
-                arg1_date = re.search(r"([0-9]{4})?[-.]?([0-9]{1,2})[-.]([0-9]{1,2})", args[1])
+            cmd = message.content.strip()
+            pattern = re.compile(r"[$]휴가 (등록|조회|해제)?\s?((.+#\d{3,4})|(\d{19}))?\s?(\d{4}-[01]?\d-[ 0123]\d)?\s?(.+)?")
+            regex_result = pattern.match(cmd)
 
-            if arg1_date:
-                # 날짜만 입력한 경우 (자기 자신 등록)
-                msg = {"content": "해당 기능은 아직 제공되지 않습니다."}
-            elif arg2_date:
-                # 스팀 아이디 or 번지넷 멤버십 ID / 휴가일 입력
-                bungie_id: int = await client.d2util.is_member_in_clan(membership_id=arg1_id, name=args[1])
-                if bungie_id:
-                    y, m, d = arg2_date.groups()
-                    if not y:
-                        y = datetime.datetime.today().year
+            if regex_result:
+                arg_mode = regex_result.group(1) if regex_result.group(1) else "등록"
+                arg_id = regex_result.group(2)
+                arg_name = regex_result.group(3)
+                arg_mem_id = regex_result.group(4)
+                arg_date = regex_result.group(5)
+                arg_desc = regex_result.group(6)
+
+                if arg_mode == "등록":
+                    # 클랜에 해당 유저가 있는지 검색
+                    member_info: dict = await client.d2util.is_member_in_clan(bungie_name=arg_name, membership_id=arg_mem_id)
+                    if not (arg_id and arg_date):
+                        msg = {"content": "양식에 따라 입력해주세요.\n> `$휴가 [등록|조회|해제] (번지 이름|멤버쉽 ID) (휴가종료일)`\n휴가종료일의 경우 `YYYY-MM-DD` 또는 `YYYY.MM.DD` 형식으로 입력해주세요."}
+                    elif member_info:
+                        y, m, d = map(int, re.match(r"(\d{4})-(\d{2})-(\d{2})", arg_date).groups())
+                        end_date = datetime.datetime(year=y, month=m, day=d)
+                        await client.register_rest(member_info, end_date, arg_desc)
+                        msg = {"content": f"{end_date.strftime('%Y-%m-%d')} 까지 휴가로 등록되었습니다."}
                     else:
-                        y = int(y)
-                    m, d = int(m), int(d)
-                    end_date = datetime.datetime(year=y, month=m, day=d)
-                    await client.register_rest(bungie_id, end_date, "\n".join(desc))
-                    msg = {"content": f"{end_date.strftime('%Y-%m-%d')} 까지 휴가로 등록되었습니다."}
+                        msg = {"content": "해당 유저를 찾을 수 없습니다."}
+                elif arg_mode == "해제":
+                    msg = {"content": "지원 예정 기능"}
+                elif arg_mode == "조회":
+                    msg_embed = await client.msg_rest_list()
+                    msg = {"embed": msg_embed}
                 else:
-                    msg = {"content": "해당 유저를 찾을 수 없습니다."}
+                    msg = {"content": "알 수 없는 모드 이름"}
             else:
                 # 제대로 입력하지 않은 경우
-                msg = {"content": "양식에 따라 입력해주세요.\n> `$휴가 [닉네임|멤버십ID] (휴가종료일)`\n휴가종료일의 경우 `YYYY-MM-DD` 또는 `YYYY.MM.DD` 형식으로 입력해주세요."}
+                msg = {"content": "양식에 따라 입력해주세요.\n> `$휴가 [등록|조회|해제] (번지 이름|멤버쉽 ID) (휴가종료일)`\n휴가종료일의 경우 `YYYY-MM-DD` 또는 `YYYY.MM.DD` 형식으로 입력해주세요."}
             await message.channel.send(**msg)
         else:
             await message.channel.send("서버 관리자 권한이 필요합니다!")

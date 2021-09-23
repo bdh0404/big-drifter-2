@@ -15,6 +15,13 @@ def str_to_datetime(date_time: str):
     return dt.datetime.fromisoformat(date_time)
 
 
+def get_bungie_name(group_member: dict) -> str:
+    if group_member["destinyUserInfo"]["bungieGlobalDisplayName"] and group_member["destinyUserInfo"].get("bungieGlobalDisplayNameCode") is not None:
+        return f"{group_member['destinyUserInfo']['bungieGlobalDisplayName']}#{group_member['destinyUserInfo']['bungieGlobalDisplayNameCode']}"
+    else:
+        pass
+
+
 class ClanUtil:
     def __init__(self, api_key: str, group_id: int, members_data_path="members.json", loop=None) -> (list, list):
         self.destiny = pydest.Pydest(api_key, loop)
@@ -26,6 +33,15 @@ class ClanUtil:
         if not os.path.exists(members_data_path):
             with open(members_data_path, "w", encoding="utf-8") as f:
                 f.write("[]")
+
+    def find_member_from_cache(self, bungie_name: str = None, membership_id: int = None) -> dict:
+        for n in self.members_data_cache:
+            if bungie_name and bungie_name == get_bungie_name(n):
+                return n
+            elif membership_id and membership_id == n["destinyUserInfo"]["membershipId"]:
+                return n
+        else:
+            return {}
 
     async def member_diff(self, cmp_file_path="members.json"):
         # 번지 API 서버 요청
@@ -104,18 +120,18 @@ class ClanUtil:
             activity_mode = await self.destiny.decode_hash(activity["activityTypeHash"], "DestinyActivityTypeDefinition", language="ko")
         return activity_mode["displayProperties"]["name"], activity["displayProperties"]["name"]
 
-    async def is_member_in_clan(self, membership_id: int, name: str = "") -> int:
-        if membership_id:
-            bungie_id_list = {int(n["destinyUserInfo"]["membershipId"]) for n in self.members_data_cache}
-            if membership_id in bungie_id_list:
-                return membership_id
-            else:
-                return 0
-        elif name:
-            bungie_name_list = [n for n in self.members_data_cache if n["destinyUserInfo"]["LastSeenDisplayName"] == name]
+    async def is_member_in_clan(self, bungie_name: str, membership_id: int = 0) -> dict:
+        if bungie_name:
+            bungie_name_list = [n for n in self.members_data_cache if get_bungie_name(n) == bungie_name]
             if bungie_name_list:
-                return bungie_name_list[0]["destinyUserInfo"]["membershipId"]
+                return bungie_name_list[0]
             else:
-                return 0
+                return {}
+        elif membership_id:
+            bungie_id_list = [n for n in self.members_data_cache if int(n["destinyUserInfo"]["membershipId"]) == membership_id]
+            if membership_id in bungie_id_list:
+                return bungie_id_list[0]
+            else:
+                return {}
         else:
-            return 0
+            return {}
