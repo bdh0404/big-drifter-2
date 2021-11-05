@@ -8,7 +8,7 @@ import discord
 
 import bot
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -87,7 +87,7 @@ async def on_message(message):
     elif message.content.startswith("$휴가"):
         if message.author.guild_permissions.administrator:
             cmd = message.content.strip()
-            pattern = re.compile(r"[$]휴가 (등록|조회|해제)?\s?((.+#\d{3,4})|(\d{19}))?\s?(\d{4}-[01]?\d-[ 0123]\d)?\s?(.+)?")
+            pattern = re.compile(r"[$]휴가 (등록|조회|해제)?\s?((.+#\d{3,4})|(\d{19}))?\s?(\d{4}-[01]?\d-[ 0123]\d)?\s?(https?://[/.\w\d]+)?\s?(.+)?")
             regex_result = pattern.match(cmd)
 
             if regex_result:
@@ -96,17 +96,23 @@ async def on_message(message):
                 arg_name = regex_result.group(3)
                 arg_mem_id = regex_result.group(4)
                 arg_date = regex_result.group(5)
-                arg_desc = regex_result.group(6)
+                arg_url = regex_result.group(6)
+                arg_desc = regex_result.group(7)
+
+                if arg_url is None:
+                    arg_url = ""
+                if arg_desc is None:
+                    arg_url = ""
 
                 if arg_mode == "등록":
                     # 클랜에 해당 유저가 있는지 검색
                     member_info: dict = await client.d2util.is_member_in_clan(bungie_name=arg_name, membership_id=arg_mem_id)
                     if not (arg_id and arg_date):
-                        msg = {"content": "양식에 따라 입력해주세요.\n> `$휴가 [등록|조회|해제] (번지 이름|멤버쉽 ID) (휴가종료일)`\n휴가종료일의 경우 `YYYY-MM-DD` 또는 `YYYY.MM.DD` 형식으로 입력해주세요."}
+                        msg = {"content": "양식에 따라 입력해주세요.\n> `$휴가 [등록|조회|해제] (번지 이름|멤버쉽 ID) (휴가종료일) [URL] [설명]`\n휴가종료일의 경우 `YYYY-MM-DD` 또는 `YYYY.MM.DD` 형식으로 입력해주세요."}
                     elif member_info:
                         y, m, d = map(int, re.match(r"(\d{4})-(\d{2})-(\d{2})", arg_date).groups())
                         end_date = datetime.datetime(year=y, month=m, day=d)
-                        await client.register_rest(member_info, end_date, arg_desc)
+                        await client.register_rest(member_info, end_date, arg_url, arg_desc)
                         msg = {"content": f"{end_date.strftime('%Y-%m-%d')} 까지 휴가로 등록되었습니다."}
                     else:
                         msg = {"content": "해당 유저를 찾을 수 없습니다."}
@@ -119,7 +125,7 @@ async def on_message(message):
                     msg = {"content": "알 수 없는 모드 이름"}
             else:
                 # 제대로 입력하지 않은 경우
-                msg = {"content": "양식에 따라 입력해주세요.\n> `$휴가 [등록|조회|해제] (번지 이름|멤버쉽 ID) (휴가종료일)`\n휴가종료일의 경우 `YYYY-MM-DD` 또는 `YYYY.MM.DD` 형식으로 입력해주세요."}
+                msg = {"content": "양식에 따라 입력해주세요.\n> `$휴가 [등록|조회|해제] (번지 이름|멤버쉽 ID) (휴가종료일) [URL] [설명]`\n휴가종료일의 경우 `YYYY-MM-DD` 또는 `YYYY.MM.DD` 형식으로 입력해주세요."}
             await message.channel.send(**msg)
         else:
             await message.channel.send("서버 관리자 권한이 필요합니다!")
