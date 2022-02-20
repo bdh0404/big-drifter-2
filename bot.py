@@ -5,7 +5,7 @@ import logging
 import re
 import time
 import os
-from typing import List
+from typing import List, Optional
 
 import discord
 
@@ -38,12 +38,12 @@ def bnet_user_format(d: dict, bold=True, skip_bnet_name=True) -> str:
     return result
 
 
-def bnet_user_format2(bungie_name: str, membership_id: int, membership_type: int = -1, bold=True) -> str:
+def bnet_user_format2(bungie_name: str, membership_id: int, membership_type: int = -1, bold=True, add_url=True) -> str:
     name, code = bungie_name.rsplit("#", 1)
     code = int(code)
     md_name = f"**{escape_markdown(name)}**#{code:04d}" if bold else f"{name}#{code:04d}"
     url = f"https://www.bungie.net/7/ko/User/Profile/{membership_type}/{membership_id}"
-    return f"[{md_name}]({url})"
+    return f"[{md_name}]({url})" if add_url else md_name
 
 
 class DestinyBot(discord.Client):
@@ -123,7 +123,11 @@ class DestinyBot(discord.Client):
                 for n in online]
 
         msg_embed = discord.Embed(title="접속중인 클랜원 목록", timestamp=dt.datetime.utcnow(), color=0x00ac00)
-        msg_embed.add_field(name=f"온라인 ({len(data)})", value="\n".join(escape_markdown(f"{n['dp_name']}") for n in data), inline=False)
+        msg_embed.add_field(
+            name=f"온라인 ({len(data)})",
+            value="\n".join(escape_markdown(f"{n['dp_name']}") for n in data),
+            inline=False
+        )
         return msg_embed
 
     async def get_clan_online_detail(self):
@@ -148,7 +152,14 @@ class DestinyBot(discord.Client):
 
         msg_embed = discord.Embed(title=f"접속중인 클랜원 목록 ({len(data)})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
         for act_type, members in data_by_type.items():
-            msg_embed.add_field(name=f"{act_type} ({len(members)})", value="\n".join(f"{escape_markdown(n['dp_name'])}{' - ' + ': '.join(n['activity'][1:]) if len(n['activity']) > 1 else ''}" for n in members), inline=False)
+            msg_embed.add_field(
+                name=f"{act_type} ({len(members)})",
+                value="\n".join(
+                    f"{escape_markdown(n['dp_name'])}{' - ' + ': '.join(n['activity'][1:]) if len(n['activity']) > 1 else ''}"
+                    for n in members
+                ),
+                inline=False
+            )
         return msg_embed
 
     async def get_long_offline(self, offline_cut=0) -> discord.Embed:
@@ -184,7 +195,12 @@ class DestinyBot(discord.Client):
             else:
                 msg_left.append(m + "\n")
 
-        msg_embed = discord.Embed(title="클랜원 목록 변동 안내", description=f"{clan_m_cnt_old}명 -> {clan_m_cnt}명 ({len(joined) - len(left):+})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed = discord.Embed(
+            title="클랜원 목록 변동 안내",
+            description=f"{clan_m_cnt_old}명 -> {clan_m_cnt}명 ({len(joined) - len(left):+})\n<t:{int(time.time())}>",
+            timestamp=dt.datetime.utcnow(),
+            color=0x00ac00
+        )
         embeds = [msg_embed]
         field_cnt = 0
         while True:
@@ -244,7 +260,13 @@ class DestinyBot(discord.Client):
     async def msg_rest_list(self):
         await self.update_rest()
         msg_embed = discord.Embed(title="휴가중인 클랜원 목록 조회", timestamp=dt.datetime.utcnow(), color=0x00ac00)
-        msg_embed.description = "\n".join(f"{bnet_user_format(self.d2util.find_member_from_cache(bungie_name=v['bungie_name'], membership_id=k))} `~{v['end_time']}`\n> " + v["description"].replace("\n", "\n> ") + (f" [(링크)]({v['msg_url']})" if v.get("msg_url") else "") for k, v in self.rest.items())
+        if self.rest:
+            msg_embed.description = "\n".join(
+                f"{bnet_user_format(self.d2util.find_member_from_cache(bungie_name=v['bungie_name'], membership_id=k))} `~{v['end_time']}`\n> "
+                + v["description"].replace("\n", "\n> ")
+                + (f" [(링크)]({v['msg_url']})" if v.get("msg_url") else "")
+                for k, v in self.rest.items()
+            )
         return msg_embed
 
     async def register_block(self, bungie_name: str, msg_url: str, description: str) -> bool:
@@ -256,6 +278,7 @@ class DestinyBot(discord.Client):
             "bungie_name": bungie_name,
             "membership_id": mem_id,
             "membership_type": user_info["membershipType"],
+            "time": int(time.time()),
             "msg_url": msg_url,
             "description": description
         }
@@ -282,13 +305,33 @@ class DestinyBot(discord.Client):
             current_page = 1 if current_page <= 0 else current_page
         block_list = [n for i, n in enumerate(self.block.values()) if (i // 10 + 1) == current_page]
         msg_embed = discord.Embed(title=f"차단된 유저 목록 조회 ({current_page}/{max_page})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
-        msg_embed.description = "\n".join(
-            f"{bnet_user_format2(v['bungie_name'], v['membership_id'], v['membership_type'])}" +
-            (f" [(참조 링크)]({v['msg_url']})" if v.get("msg_url") else "") +
-            f"\n```\n{v['description']}\n```"
-            for v in block_list
-        )
+        if not block_list:
+            msg_embed.description = "차단된 유저가 없습니다."
+        for v in block_list:
+            msg_embed.add_field(
+                name=v['bungie_name'],
+                value=f"차단 일시: <t:{v['time']}>\n[번지넷 프로필](https://www.bungie.net/7/ko/User/Profile/{v['membership_type']}/{v['membership_id']})" +
+                      (f" / [참조 링크]({v['msg_url']})" if v.get("msg_url") else "") +
+                      f"\n```\n{v['description']}\n```",
+                inline=False
+            )
         return msg_embed
+
+    async def msg_block_list_verify(self, joined_list: list) -> Optional[discord.Embed]:
+        blocked = [self.block[n["destinyUserInfo"]["membershipId"]] for n in joined_list if n["destinyUserInfo"]["membershipId"] in self.block]
+        if not blocked:
+            return None
+        else:
+            msg_embed = discord.Embed(title=f":no_entry_sign: 차단된 유저의 클랜 가입 확인!!", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+            for v in blocked:
+                msg_embed.add_field(
+                    name=v['bungie_name'],
+                    value=f"차단 일시: <t:{v['time']}>\n[번지넷 프로필](https://www.bungie.net/7/ko/User/Profile/{v['membership_type']}/{v['membership_id']})" +
+                          (f" / [참조 링크]({v['msg_url']})" if v.get("msg_url") else "") +
+                          f"\n```\n{v['description']}\n```",
+                    inline=False
+                )
+            return msg_embed
 
     async def alert(self):
         logger.debug("Alert Task start!")
@@ -299,9 +342,9 @@ class DestinyBot(discord.Client):
         if joined or left:
             logger.info(f"{dt.datetime.now()} Alert detected: {len(joined)}, {len(left)}")
             msg_embed = await self.msg_members_diff(joined, left)
-
-            # TODO joined list 의 member 에 대한 검증 필요
-            # Verify code here
+            msg_blocked = await self.msg_block_list_verify(joined)
+            if msg_blocked:
+                msg_embed.append(msg_blocked)
 
             # 대충 메시지 보내는 부분
             for target in alert_target:
@@ -326,7 +369,7 @@ class DestinyBot(discord.Client):
             self.loop.create_task(self.alert())
             logger.debug("Creating tasks end. sleep 60 secs...")
             # 봇에서 가동중임을 확인하기 위해 최근 가동시간을 저장
-            self.last_tasks_run = dt.datetime.now()
+            self.last_tasks_run = time.time()
             # 1분간 sleep
             await asyncio.sleep(60)
 

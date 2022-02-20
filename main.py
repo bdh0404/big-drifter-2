@@ -8,7 +8,7 @@ import discord
 
 import bot
 
-__version__ = "0.3.2"
+__version__ = "0.4.0"
 
 with open("settings.json", "r", encoding="utf-8") as f:
     options: dict = json.load(f)
@@ -49,7 +49,7 @@ async def on_message(message):
         msg_embed.add_field(name="Version", value=__version__)
         msg_embed.add_field(name="PID", value=str(os.getpid()))
         msg_embed.add_field(name="Uptime", value=str(uptime), inline=False)
-        msg_embed.add_field(name="Last Clan info update", value=str(client.last_tasks_run), inline=False)
+        msg_embed.add_field(name="Last Clan info update", value=f"<t:{int(client.last_tasks_run)}:T>", inline=False)
         await message.channel.send(embed=msg_embed)
 
     elif message.content.startswith("$미접"):
