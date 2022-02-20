@@ -102,7 +102,7 @@ async def on_message(message):
                 if arg_url is None:
                     arg_url = ""
                 if arg_desc is None:
-                    arg_url = ""
+                    arg_desc = ""
 
                 if arg_mode == "등록":
                     # 클랜에 해당 유저가 있는지 검색
@@ -129,6 +129,51 @@ async def on_message(message):
             await message.channel.send(**msg)
         else:
             await message.channel.send("서버 관리자 권한이 필요합니다!")
+
+    elif message.content.startswith("$차단"):
+        if not message.author.guild_permissions.administrator:
+            await message.channel.send("서버 관리자 권한이 필요합니다!")
+            return
+
+        cmd = message.content.strip()
+        pattern = re.compile(r"[$]차단 (등록|조회|해제)?\s?((.+#\d{3,4})|([-]?\d))?\s?(https?://[\w\d.@?^=%&/~+#]+)?\s?([\s\S]+)?", re.MULTILINE)
+        regex_result = pattern.match(cmd)
+        if not regex_result:
+            await message.channel.send("양식에 따라 입력해주세요.\n> `$차단 [등록|조회|해제] (번지 이름) [URL] [설명]`")
+            return
+
+        arg_mode = regex_result.group(1) if regex_result.group(1) else "등록"
+        arg_name = regex_result.group(3)
+        arg_page = regex_result.group(4)
+        arg_url = regex_result.group(5)
+        arg_desc = regex_result.group(6)
+
+        if arg_url is None:
+            arg_url = ""
+        if arg_desc is None:
+            arg_desc = "(사유 없음)"
+        else:
+            arg_desc = arg_desc.strip()
+
+        if arg_mode == "등록":
+            if not arg_name:
+                await message.channel.send("양식에 따라 입력해주세요.\n> `$차단 등록 (번지 이름) [URL] [설명]`")
+                return
+            ret = await client.register_block(arg_name, arg_url, arg_desc)
+            msg = {"content": f"`{arg_name}` 차단 등록 성공"} if ret else {"content": f"`{arg_name}` 차단 등록 실패"}
+        elif arg_mode == "해제":
+            if not arg_name:
+                await message.channel.send("양식에 따라 입력해주세요.\n> `$차단 등록 (번지 이름) [URL] [설명]`")
+                return
+            ret = await client.deregister_block(arg_name)
+            msg = {"content": f"`{arg_name}` 차단 해제 성공"} if ret else {"content": f"`{arg_name}` 차단 해제 실패"}
+        elif arg_mode == "조회":
+            page = int(arg_page) if arg_page else 1
+            msg_embed = await client.msg_block_list(page)
+            msg = {"embed": msg_embed}
+        else:
+            msg = {"content": "양식에 따라 입력해주세요.\n> `$차단 등록 (번지 이름) [URL] [설명]`"}
+        await message.channel.send(**msg)
 
 
 if __name__ == '__main__':

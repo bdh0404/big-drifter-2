@@ -135,3 +135,15 @@ class ClanUtil:
                 return {}
         else:
             return {}
+
+    async def search_player(self, bungie_name: str) -> dict:
+        try:
+            resp = await self.destiny.api.search_destiny_player(-1, bungie_name)
+        except asyncio.TimeoutError:
+            return {}
+
+        if not resp.get("Response") or resp.get("ErrorCode") != 1:
+            # 결과가 비어있거나 (해당 유저가 없거나), 오류 발생한 경우
+            return {}
+        else:
+            return resp["Response"][0]

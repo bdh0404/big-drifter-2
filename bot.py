@@ -38,6 +38,14 @@ def bnet_user_format(d: dict, bold=True, skip_bnet_name=True) -> str:
     return result
 
 
+def bnet_user_format2(bungie_name: str, membership_id: int, membership_type: int = -1, bold=True) -> str:
+    name, code = bungie_name.rsplit("#", 1)
+    code = int(code)
+    md_name = f"**{escape_markdown(name)}**#{code:04d}" if bold else f"{name}#{code:04d}"
+    url = f"https://www.bungie.net/7/ko/User/Profile/{membership_type}/{membership_id}"
+    return f"[{md_name}]({url})"
+
+
 class DestinyBot(discord.Client):
     def __init__(self, *, loop=None, **options):
         super(DestinyBot, self).__init__(loop=loop, **options)
@@ -48,18 +56,26 @@ class DestinyBot(discord.Client):
         self.last_tasks_run = None
         self._cache = {}
         self.rest = {}
+        self.block = {}
 
         self._path_push_list = "push_list.json"
         self._path_rest_list = "rest_list.json"
+        self._path_block_list = "block_list.json"
         with open(self._path_push_list, "r", encoding="utf-8") as f:
             self.alert_target: list = json.load(f).pop("alert_target", [])
-        if not os.path.exists("rest_list.json"):
+        if not os.path.exists(self._path_rest_list):
             with open(self._path_rest_list, "w", encoding="utf-8") as f:
                 f.write("{}")
+        if not os.path.exists(self._path_block_list):
+            with open(self._path_block_list, "w", encoding="utf-8") as f:
+                f.write("{}")
+
         with open(self._path_rest_list, "r", encoding="utf-8") as f:
             self.rest = json.load(f)
             # sorting
             self.rest = dict(sorted(self.rest.items(), key=lambda x: x[1]["end_time"]))
+        with open(self._path_block_list, "r", encoding="utf-8") as f:
+            self.block = json.load(f)
 
         if not self.alert_target:
             logger.warning("Empty alert target list!!")
@@ -202,7 +218,7 @@ class DestinyBot(discord.Client):
             json.dump(self.rest, f, ensure_ascii=False, indent=2)
 
     async def deregister_rest(self, membership_id: int):
-        self.rest.pop(membership_id)
+        self.rest.pop(membership_id, None)
         with open(self._path_rest_list, "w", encoding="utf-8") as f:
             json.dump(self.rest, f, ensure_ascii=False, indent=2)
 
@@ -229,6 +245,49 @@ class DestinyBot(discord.Client):
         await self.update_rest()
         msg_embed = discord.Embed(title="휴가중인 클랜원 목록 조회", timestamp=dt.datetime.utcnow(), color=0x00ac00)
         msg_embed.description = "\n".join(f"{bnet_user_format(self.d2util.find_member_from_cache(bungie_name=v['bungie_name'], membership_id=k))} `~{v['end_time']}`\n> " + v["description"].replace("\n", "\n> ") + (f" [(링크)]({v['msg_url']})" if v.get("msg_url") else "") for k, v in self.rest.items())
+        return msg_embed
+
+    async def register_block(self, bungie_name: str, msg_url: str, description: str) -> bool:
+        user_info = await self.d2util.search_player(bungie_name=bungie_name)
+        if not user_info:
+            return False
+        mem_id = user_info["membershipId"]
+        self.block[mem_id] = {
+            "bungie_name": bungie_name,
+            "membership_id": mem_id,
+            "membership_type": user_info["membershipType"],
+            "msg_url": msg_url,
+            "description": description
+        }
+        with open(self._path_block_list, "w", encoding="utf-8") as f:
+            json.dump(self.block, f, ensure_ascii=False, indent=2)
+        return True
+
+    async def deregister_block(self, bungie_name: str) -> bool:
+        user_info = await self.d2util.search_player(bungie_name=bungie_name)
+        if not user_info:
+            return False
+        self.block.pop(user_info["membershipId"], None)
+        with open(self._path_block_list, "w", encoding="utf-8") as f:
+            json.dump(self.block, f, ensure_ascii=False, indent=2)
+        return True
+
+    async def msg_block_list(self, page=1):
+        block_cnt = len(self.block)
+        max_page = (block_cnt - 1) // 10 + 1
+        if page >= 0:
+            current_page = page if 0 < page <= max_page else 1
+        else:
+            current_page = max_page + 1 + page
+            current_page = 1 if current_page <= 0 else current_page
+        block_list = [n for i, n in enumerate(self.block.values()) if (i // 10 + 1) == current_page]
+        msg_embed = discord.Embed(title=f"차단된 유저 목록 조회 ({current_page}/{max_page})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed.description = "\n".join(
+            f"{bnet_user_format2(v['bungie_name'], v['membership_id'], v['membership_type'])}" +
+            (f" [(참조 링크)]({v['msg_url']})" if v.get("msg_url") else "") +
+            f"\n```\n{v['description']}\n```"
+            for v in block_list
+        )
         return msg_embed
 
     async def alert(self):
