@@ -147,3 +147,16 @@ class ClanUtil:
             return {}
         else:
             return resp["Response"][0]
+
+    async def _get_membership_from_hard_linked_credential(self, credential: str, cr_type: int = 12):
+        url = pydest.api.USER_URL + f"GetMembershipFromHardLinkedCredential/{cr_type}/{credential}/"
+        return await self.destiny.api._get_request(url)
+
+    async def get_player_from_steam_id(self, steam_id: str) -> dict:
+        resp = await self._get_membership_from_hard_linked_credential(steam_id)
+        if not resp.get("Response") or resp.get("ErrorCode") != 1:
+            # 결과가 비어있거나 (해당 유저가 없거나), 오류 발생한 경우
+            return {}
+        d = resp["Response"]
+        resp2 = await self.destiny.api.get_membership_data_by_id(d["membershipId"], d["membershipType"])
+        return resp2["Response"]["destinyMemberships"][0]

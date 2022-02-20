@@ -269,13 +269,18 @@ class DestinyBot(discord.Client):
             )
         return msg_embed
 
-    async def register_block(self, bungie_name: str, msg_url: str, description: str) -> bool:
-        user_info = await self.d2util.search_player(bungie_name=bungie_name)
+    async def register_block(self, bungie_name: str = "", steam_id: str = "", msg_url: str = "", description: str = "") -> bool:
+        if bungie_name:
+            user_info = await self.d2util.search_player(bungie_name=bungie_name)
+        elif steam_id:
+            user_info = await self.d2util.get_player_from_steam_id(steam_id=steam_id)
+        else:
+            return False
         if not user_info:
             return False
         mem_id = user_info["membershipId"]
         self.block[mem_id] = {
-            "bungie_name": bungie_name,
+            "bungie_name": "{bungieGlobalDisplayName}#{bungieGlobalDisplayNameCode:04d}".format(**user_info),
             "membership_id": mem_id,
             "membership_type": user_info["membershipType"],
             "time": int(time.time()),
@@ -286,8 +291,13 @@ class DestinyBot(discord.Client):
             json.dump(self.block, f, ensure_ascii=False, indent=2)
         return True
 
-    async def deregister_block(self, bungie_name: str) -> bool:
-        user_info = await self.d2util.search_player(bungie_name=bungie_name)
+    async def deregister_block(self, bungie_name: str = "", steam_id: str = "") -> bool:
+        if bungie_name:
+            user_info = await self.d2util.search_player(bungie_name=bungie_name)
+        elif steam_id:
+            user_info = await self.d2util.get_player_from_steam_id(steam_id=steam_id)
+        else:
+            return False
         if not user_info:
             return False
         self.block.pop(user_info["membershipId"], None)
