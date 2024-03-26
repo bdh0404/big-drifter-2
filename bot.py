@@ -362,7 +362,7 @@ class DestinyBot(discord.Client):
             return
         # 단순 출력
         if joined or left:
-            logger.info(f"{dt.datetime.now()} Alert detected: {len(joined)}, {len(left)}")
+            logger.info(f"Alert detected: {len(joined)}, {len(left)}")
             msg_embed = await self.msg_members_diff(joined, left)
             msg_blocked = await self.msg_block_list_verify(joined)
             if msg_blocked:
@@ -381,10 +381,10 @@ class DestinyBot(discord.Client):
     async def tasks(self):
         # 로딩될때까지 대기
         await self.wait_until_ready()
-        logger.info(f"{dt.datetime.now()} loop task start")
+        logger.info(f"Loop task start")
         while True:
             if self.is_closed():
-                logger.warning(f"{dt.datetime.now()} client closed!!")
+                logger.warning(f"Discord bot client closed!!")
                 await asyncio.sleep(60)
                 continue
             logger.debug("Creating tasks")
