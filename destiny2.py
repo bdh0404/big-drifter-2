@@ -23,7 +23,7 @@ def get_bungie_name(group_member: dict) -> str:
 
 
 class ClanUtil:
-    def __init__(self, api_key: str, group_id: int, members_data_path="members.json", loop=None) -> (list, list):
+    def __init__(self, api_key: str, group_id: int, members_data_path="members.json", loop=None):
         self.destiny = pydest.Pydest(api_key, loop)
         # 한국어가 pydest 모듈에만 목록에 존재하지 않아서 임시로 땜빵...
         self.destiny._manifest.manifest_files["ko"] = ""
@@ -43,18 +43,18 @@ class ClanUtil:
         else:
             return {}
 
-    async def member_diff(self, cmp_file_path="members.json"):
+    async def member_diff(self):
         # 번지 API 서버 요청
         resp = await self.destiny.api.get_members_of_group(self.group_id)
         raw_new: list = resp["Response"]["results"]
         if self.members_data_cache:
             raw_old: list = self.members_data_cache
         else:
-            with open(cmp_file_path, "r", encoding="utf-8") as f:
+            with open(self.members_data_path, "r", encoding="utf-8") as f:
                 raw_old: list = json.load(f)
             # 파일도 비어있는 경우 새로 저장한 다음 바로 비어있는 리스트 반환
             if not raw_old:
-                with open(cmp_file_path, "w", encoding="utf-8") as f:
+                with open(self.members_data_path, "w", encoding="utf-8") as f:
                     json.dump(raw_new, f, ensure_ascii=False, indent=2)
                 return [], []
 
@@ -70,7 +70,7 @@ class ClanUtil:
 
         # 파일, 메모리에 저장
         self.members_data_cache = raw_new
-        with open(cmp_file_path, "w", encoding="utf-8") as f:
+        with open(self.members_data_path, "w", encoding="utf-8") as f:
             json.dump(raw_new, f, ensure_ascii=False, indent=2)
 
         # 감지한 사람들 return

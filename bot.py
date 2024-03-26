@@ -49,7 +49,13 @@ def bnet_user_format2(bungie_name: str, membership_id: int, membership_type: int
 class DestinyBot(discord.Client):
     def __init__(self, *, loop=None, **options):
         super(DestinyBot, self).__init__(loop=loop, **options)
-        self.d2util = destiny2.ClanUtil(options.pop("bungie_api_key"), options.pop("group_id"), loop=self.loop)
+        self._dir_data = "data"
+        self._path_members_list = os.path.join(self._dir_data, "members.json")
+        self._path_push_list = os.path.join(self._dir_data, "push_list.json")
+        self._path_rest_list = os.path.join(self._dir_data, "rest_list.json")
+        self._path_block_list = os.path.join(self._dir_data, "block_list.json")
+
+        self.d2util = destiny2.ClanUtil(options.pop("bungie_api_key"), options.pop("group_id"), loop=self.loop, members_data_path=self._path_members_list)
         self.st = dt.datetime.now()
         self.offline_cut = options.pop("offline_cut", 14)
         self.online_command_preview = options.pop("online_command_preview", False)
@@ -58,11 +64,11 @@ class DestinyBot(discord.Client):
         self.rest = {}
         self.block = {}
 
-        self._path_push_list = "push_list.json"
-        self._path_rest_list = "rest_list.json"
-        self._path_block_list = "block_list.json"
-        with open(self._path_push_list, "r", encoding="utf-8") as f:
-            self.alert_target: list = json.load(f).pop("alert_target", [])
+        if not os.path.exists(self._dir_data):
+            os.makedirs(self._dir_data)
+        if not os.path.exists(self._path_push_list):
+            with open(self._path_push_list, "w", encoding="utf-8") as f:
+                f.write("{}")
         if not os.path.exists(self._path_rest_list):
             with open(self._path_rest_list, "w", encoding="utf-8") as f:
                 f.write("{}")
@@ -70,6 +76,8 @@ class DestinyBot(discord.Client):
             with open(self._path_block_list, "w", encoding="utf-8") as f:
                 f.write("{}")
 
+        with open(self._path_push_list, "r", encoding="utf-8") as f:
+            self.alert_target: list = json.load(f).pop("alert_target", [])
         with open(self._path_rest_list, "r", encoding="utf-8") as f:
             self.rest = json.load(f)
             # sorting
@@ -347,7 +355,11 @@ class DestinyBot(discord.Client):
         logger.debug("Alert Task start!")
         alert_target = [self.get_channel(id=n) for n in self.alert_target]
         # 클랜원 변화 목록 파싱
-        joined, left = await self.d2util.member_diff()
+        try:
+            joined, left = await self.d2util.member_diff()
+        except Exception as e:
+            logger.error(f"Error occurred while getting member diff: {e}")
+            return
         # 단순 출력
         if joined or left:
             logger.info(f"{dt.datetime.now()} Alert detected: {len(joined)}, {len(left)}")

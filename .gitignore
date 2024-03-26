@@ -132,10 +132,6 @@ dmypy.json
 .idea/
 
 # Project
-settings.json
-members.json
-push_list.json
-rest_list.json
-block_list.json
 manifest.json
 *.content
+data/
