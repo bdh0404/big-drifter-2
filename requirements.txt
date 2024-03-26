@@ -3,7 +3,7 @@ aiohttp
 async-timeout
 attrs
 chardet
-discord.py
+discord.py ~= 1.5
 idna
 multidict
 pydest
