@@ -3,15 +3,23 @@ import json
 import os
 import datetime
 import re
+from distutils.util import strtobool
 
 import discord
+import dotenv
 
 import bot
 
 __version__ = "0.4.1"
 
-with open("settings.json", "r", encoding="utf-8") as f:
-    options: dict = json.load(f)
+dotenv.load_dotenv()
+options = {
+    "bungie_api_key": os.getenv("BUNGIE_API_KEY", ""),
+    "discord_token": os.getenv("DISCORD_TOKEN", ""),
+    "group_id": int(os.getenv("GROUP_ID", 0)),
+    "offline_cut": int(os.getenv("OFFLINE_CUT", 14)),
+    "online_command_preview": strtobool(os.getenv("ONLINE_COMMAND_PREVIEW", "false"))
+}
 
 client = bot.DestinyBot(**options)
 logger = logging.getLogger()
