@@ -25,8 +25,6 @@ def get_bungie_name(group_member: dict) -> str:
 class ClanUtil:
     def __init__(self, api_key: str, group_id: int, members_data_path="members.json", loop=None):
         self.destiny = pydest.Pydest(api_key, loop)
-        # 한국어가 pydest 모듈에만 목록에 존재하지 않아서 임시로 땜빵...
-        self.destiny._manifest.manifest_files["ko"] = ""
         self.group_id = group_id
         self.members_data_path = members_data_path
         self.members_data_cache = []

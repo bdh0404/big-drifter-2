@@ -378,6 +378,9 @@ class DestinyBot(discord.Client):
         logger.debug("Alert Task end")
         return
 
+    async def async_init(self):
+        await self.d2util.destiny.update_manifest("ko")
+
     async def tasks(self):
         # 로딩될때까지 대기
         await self.wait_until_ready()
@@ -396,6 +399,7 @@ class DestinyBot(discord.Client):
             await asyncio.sleep(60)
 
     def run(self, *args, **kwargs):
+        self.loop.run_until_complete(self.async_init())
         # 대충 loop에 작업 추가하는 파트
         self.loop.create_task(self.tasks())
         # super 실행
