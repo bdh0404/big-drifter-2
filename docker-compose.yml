@@ -1,0 +1,19 @@
+version: '3'
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: big-drifter-2
+    container_name: big-drifter-2
+    volumes:
+      - ./data:/code/data
+    environment:
+      - BUNGIE_API_KEY=${BUNGIE_API_KEY}
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - GROUP_ID=${GROUP_ID}
+      - OFFLINE_CUT=${OFFLINE_CUT}
+      - ONLINE_COMMAND_PREVIEW=${ONLINE_COMMAND_PREVIEW}
+
+volumes:
+  data:
