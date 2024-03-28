@@ -5,7 +5,6 @@ import os
 import logging
 
 import pydest
-import aiohttp
 
 
 logger = logging.getLogger("d2util")

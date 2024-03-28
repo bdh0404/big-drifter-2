@@ -1,5 +1,4 @@
 aiofile
-aiohttp
 async-timeout
 attrs
 chardet
