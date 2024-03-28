@@ -1,7 +1,10 @@
-FROM python:3.11-alpine
+FROM python
 
 # Set the working directory
 WORKDIR /code
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy requirements.txt
 COPY requirements.txt .
@@ -10,7 +13,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # Copy all python files
-COPY ./*.py /code
+COPY ./*.py /code/
+
+
 
 # Run the application
 CMD ["python", "main.py"]

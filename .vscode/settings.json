@@ -1,0 +1,5 @@
+{
+    "containerApps.deployWorkspaceProject.containerAppResourceGroupName": "bigdrifter2",
+    "containerApps.deployWorkspaceProject.containerAppName": "big-drifter-2",
+    "containerApps.deployWorkspaceProject.containerRegistryName": "bigdrifter279b4d0"
+}
