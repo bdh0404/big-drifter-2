@@ -8,6 +8,7 @@ import os
 from typing import List, Optional
 
 import discord
+from discord.ext import tasks
 
 import destiny2
 
@@ -47,15 +48,16 @@ def bnet_user_format2(bungie_name: str, membership_id: int, membership_type: int
 
 
 class DestinyBot(discord.Client):
-    def __init__(self, *, loop=None, **options):
-        super(DestinyBot, self).__init__(loop=loop, **options)
+    def __init__(self, *, loop=None, intents, **options):
+        super(DestinyBot, self).__init__(loop=loop, intents=intents, **options)
+        self._api_key = options.pop("bungie_api_key")
+        self._group_id = options.pop("group_id")
         self._dir_data = "data"
         self._path_members_list = os.path.join(self._dir_data, "members.json")
         self._path_push_list = os.path.join(self._dir_data, "push_list.json")
         self._path_rest_list = os.path.join(self._dir_data, "rest_list.json")
         self._path_block_list = os.path.join(self._dir_data, "block_list.json")
 
-        self.d2util = destiny2.ClanUtil(options.pop("bungie_api_key"), options.pop("group_id"), loop=self.loop, members_data_path=self._path_members_list)
         self.st = dt.datetime.now()
         self.offline_cut = options.pop("offline_cut", 14)
         self.online_command_preview = options.pop("online_command_preview", False)
@@ -130,7 +132,7 @@ class DestinyBot(discord.Client):
                  'bungie_name': n.get('bungieNetUserInfo', {}).get('displayName', "")}
                 for n in online]
 
-        msg_embed = discord.Embed(title="접속중인 클랜원 목록", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed = discord.Embed(title="접속중인 클랜원 목록", timestamp=dt.datetime.now(), color=0x00ac00)
         msg_embed.add_field(
             name=f"온라인 ({len(data)})",
             value="\n".join(escape_markdown(f"{n['dp_name']}") for n in data),
@@ -158,7 +160,7 @@ class DestinyBot(discord.Client):
             else:
                 data_by_type[n["activity"][0]] = [n]
 
-        msg_embed = discord.Embed(title=f"접속중인 클랜원 목록 ({len(data)})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed = discord.Embed(title=f"접속중인 클랜원 목록 ({len(data)})", timestamp=dt.datetime.now(), color=0x00ac00)
         for act_type, members in data_by_type.items():
             msg_embed.add_field(
                 name=f"{act_type} ({len(members)})",
@@ -177,10 +179,10 @@ class DestinyBot(discord.Client):
         await self.update_rest()
         data = [{'name': bnet_user_format(n),
                  'membership_id': n['destinyUserInfo']['membershipId'],
-                 'last_online': dt.timedelta(seconds=int(dt.datetime.utcnow().timestamp()) - int(n['lastOnlineStatusChange'])),
+                 'last_online': dt.timedelta(seconds=int(dt.datetime.now().timestamp()) - int(n['lastOnlineStatusChange'])),
                  'is_in_rest': n['destinyUserInfo']['membershipId'] in self.rest}
                 for n in target]
-        msg_embed = discord.Embed(title=f"{cut}일 이상 미접속자 목록", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed = discord.Embed(title=f"{cut}일 이상 미접속자 목록", timestamp=dt.datetime.now(), color=0x00ac00)
         msg_embed.description = "\n".join((f"~~{n['name']}~~" if n['is_in_rest'] else n["name"]) + f": `{n['last_online']}`" for n in data)
         return msg_embed
 
@@ -206,14 +208,14 @@ class DestinyBot(discord.Client):
         msg_embed = discord.Embed(
             title="클랜원 목록 변동 안내",
             description=f"{clan_m_cnt_old}명 -> {clan_m_cnt}명 ({len(joined) - len(left):+})\n<t:{int(time.time())}>",
-            timestamp=dt.datetime.utcnow(),
+            timestamp=dt.datetime.now(),
             color=0x00ac00
         )
         embeds = [msg_embed]
         field_cnt = 0
         while True:
             if field_cnt >= 5:
-                embeds.append(discord.Embed(description="클랜원 목록 변동 안내 (+)", timestamp=dt.datetime.utcnow(), color=0x00ac00))
+                embeds.append(discord.Embed(description="클랜원 목록 변동 안내 (+)", timestamp=dt.datetime.now(), color=0x00ac00))
                 field_cnt = 0
 
             if msg_joined:
@@ -267,7 +269,7 @@ class DestinyBot(discord.Client):
 
     async def msg_rest_list(self):
         await self.update_rest()
-        msg_embed = discord.Embed(title="휴가중인 클랜원 목록 조회", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed = discord.Embed(title="휴가중인 클랜원 목록 조회", timestamp=dt.datetime.now(), color=0x00ac00)
         if self.rest:
             msg_embed.description = "\n".join(
                 f"{bnet_user_format(self.d2util.find_member_from_cache(bungie_name=v['bungie_name'], membership_id=k))} `~{v['end_time']}`\n> "
@@ -322,7 +324,7 @@ class DestinyBot(discord.Client):
             current_page = max_page + 1 + page
             current_page = 1 if current_page <= 0 else current_page
         block_list = [n for i, n in enumerate(self.block.values()) if (i // 10 + 1) == current_page]
-        msg_embed = discord.Embed(title=f"차단된 유저 목록 조회 ({current_page}/{max_page})", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+        msg_embed = discord.Embed(title=f"차단된 유저 목록 조회 ({current_page}/{max_page})", timestamp=dt.datetime.now(), color=0x00ac00)
         if not block_list:
             msg_embed.description = "차단된 유저가 없습니다."
         for v in block_list:
@@ -340,7 +342,7 @@ class DestinyBot(discord.Client):
         if not blocked:
             return None
         else:
-            msg_embed = discord.Embed(title=f":no_entry_sign: 차단된 유저의 클랜 가입 확인!!", timestamp=dt.datetime.utcnow(), color=0x00ac00)
+            msg_embed = discord.Embed(title=f":no_entry_sign: 차단된 유저의 클랜 가입 확인!!", timestamp=dt.datetime.now(), color=0x00ac00)
             for v in blocked:
                 msg_embed.add_field(
                     name=v['bungie_name'],
@@ -353,7 +355,7 @@ class DestinyBot(discord.Client):
 
     async def alert(self):
         logger.debug("Alert Task start!")
-        alert_target = [self.get_channel(id=n) for n in self.alert_target]
+        alert_target = [self.get_channel(n) for n in self.alert_target]
         # 클랜원 변화 목록 파싱
         try:
             joined, left = await self.d2util.member_diff()
@@ -378,29 +380,28 @@ class DestinyBot(discord.Client):
         logger.debug("Alert Task end")
         return
 
-    async def async_init(self):
+    async def setup_hook(self) -> None:
+        self.d2util = destiny2.ClanUtil(self._api_key, self._group_id, members_data_path=self._path_members_list)
         await self.d2util.destiny.update_manifest("ko")
-
-    async def tasks(self):
-        # 로딩될때까지 대기
-        await self.wait_until_ready()
         logger.info(f"Loop task start")
-        while True:
-            if self.is_closed():
-                logger.warning(f"Discord bot client closed!!")
-                await asyncio.sleep(60)
-                continue
-            logger.debug("Creating tasks")
-            self.loop.create_task(self.alert())
-            logger.debug("Creating tasks end. sleep 60 secs...")
-            # 봇에서 가동중임을 확인하기 위해 최근 가동시간을 저장
-            self.last_tasks_run = time.time()
-            # 1분간 sleep
-            await asyncio.sleep(60)
+        self.loop_tasks.start()
+
+    @tasks.loop(seconds=3600)
+    async def loop_tasks(self):
+        # 로딩될때까지 대기
+        if self.is_closed():
+            logger.warning(f"Discord bot client closed!!")
+            return
+        logger.debug("Creating tasks")
+        await self.alert()
+        logger.debug("Creating tasks end. sleep 60 secs...")
+        # 봇에서 가동중임을 확인하기 위해 최근 가동시간을 저장
+        self.last_tasks_run = time.time()
+    
+    @loop_tasks.before_loop
+    async def before_task(self):
+        await self.wait_until_ready()
 
     def run(self, *args, **kwargs):
-        self.loop.run_until_complete(self.async_init())
-        # 대충 loop에 작업 추가하는 파트
-        self.loop.create_task(self.tasks())
         # super 실행
         super(DestinyBot, self).run(*args, **kwargs)

@@ -3,7 +3,7 @@ import json
 import os
 import datetime
 import re
-from distutils.util import strtobool
+import str2bool
 
 import discord
 import dotenv
@@ -18,10 +18,13 @@ options = {
     "discord_token": os.getenv("DISCORD_TOKEN", ""),
     "group_id": int(os.getenv("GROUP_ID", 0)),
     "offline_cut": int(os.getenv("OFFLINE_CUT", 14)),
-    "online_command_preview": strtobool(os.getenv("ONLINE_COMMAND_PREVIEW", "false"))
+    "online_command_preview": str2bool.str2bool_exc(os.getenv("ONLINE_COMMAND_PREVIEW", "false"))
 }
 
-client = bot.DestinyBot(**options)
+intents = discord.Intents.default()
+intents.message_content = True
+
+client = bot.DestinyBot(intents=intents, **options)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s")
@@ -57,7 +60,7 @@ async def on_message(message):
 
     if message.content.startswith("$정보"):
         uptime = await client.get_uptime()
-        msg_embed = discord.Embed(title="BIG DRIFTER 2", description="by Krepe.Z (Krepe#4364)", timestamp=datetime.datetime.utcnow(), color=0x00ac00)
+        msg_embed = discord.Embed(title="BIG DRIFTER 2", description="by bdh0404(Tensor#5772)", timestamp=datetime.datetime.now(), color=0x00ac00)
         msg_embed.add_field(name="Version", value=__version__)
         msg_embed.add_field(name="PID", value=str(os.getpid()))
         msg_embed.add_field(name="Uptime", value=str(uptime), inline=False)

@@ -23,8 +23,8 @@ def get_bungie_name(group_member: dict) -> str:
 
 
 class ClanUtil:
-    def __init__(self, api_key: str, group_id: int, members_data_path="members.json", loop=None):
-        self.destiny = pydest.Pydest(api_key, loop)
+    def __init__(self, api_key: str, group_id: int, members_data_path="members.json"):
+        self.destiny = pydest.Pydest(api_key)
         self.group_id = group_id
         self.members_data_path = members_data_path
         self.members_data_cache = []
@@ -80,7 +80,7 @@ class ClanUtil:
         members: list = resp["Response"]["results"]
 
         # 커트라인 제작
-        today = dt.datetime.utcnow().timestamp()
+        today = dt.datetime.now().timestamp()
         cut_line = today - cut_day * 86400
         target = [n for n in members
                   if int(n["lastOnlineStatusChange"]) < cut_line]

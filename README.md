@@ -23,7 +23,7 @@ BIG DRIFTER 2 IS WATCHING YOU
     ```
 
 ### Docker
-3. `docker compose up -d` 명령어로 도커 컨테이너를 실행합니다.
+3. `docker-compose up -d` 명령어로 도커 컨테이너를 실행합니다.
 
 ### Old guide
 `Python 3.10` 또는 `Python 3.11` 버전을 권장합니다. `discord.py` 패키지의 버전은 반드시 1.x여야 합니다.
@@ -31,6 +31,31 @@ BIG DRIFTER 2 IS WATCHING YOU
 3. 가상환경 생성 및 진입.
 4. `requirements.txt` 파일 내 모듈 설치. (`pip install -r requirements.txt`)
 5. `main.py` 파일을 데몬 형태로 실행.
+
+### Discord 권한
+1. 별명 변경하기
+2. 메시지 읽기
+3. 메시지 보내기
+4. 공개 스레드 만들기
+5. 비공개 스레드 만들기
+6. 스레드에서 메시지 보내기
+7. 링크 첨부
+8. 파일 첨부
+9. @everyone, @here, 모든 역할 멘션하기
+10. 외부 이모지 사용
+11. 외부 스티커 사용
+12. 반응 추가하기
+13. 애플리케이션 명령어 사용
+14. 활동 사용하기
+15. 연결
+16. 말하기
+17. 영상
+18. 음성 감지 사용
+19. 발언권 요청하기
+20. 사운드보드 사용
+21. 외부 사운드 사용
+
+Presense Intent, Server Members Intent, Message Content Intent
 
 ## Commands
 |명령어|설명|
@@ -74,3 +99,7 @@ BIG DRIFTER 2 IS WATCHING YOU
 - 도커화
   - 봇 설정에 `settings.json` 대신 `.env` 파일을 사용하도록 변경
   - json 파일들을 `data/` 폴더로 이동
+
+### v0.6.0
+ - discord.py 2버전 대응
+ - 클랜원 목록 업데이트 1분 -> 1시간

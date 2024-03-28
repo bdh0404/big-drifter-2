@@ -3,10 +3,12 @@ aiohttp
 async-timeout
 attrs
 chardet
-discord.py ~= 1.5
+discord.py
 idna
 multidict
 pydest
 websockets
 yarl
 python-dotenv
+asyncio
+str2bool
