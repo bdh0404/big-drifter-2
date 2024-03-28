@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 # Copy all python files
 COPY ./*.py /code/
 
-
+# COPY ./data/*.json /code/data/
 
 # Run the application
 CMD ["python", "main.py"]
